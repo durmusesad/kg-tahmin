@@ -203,11 +203,23 @@
     border:1.5px solid var(--border);
     border-left:4px solid var(--border);
     border-radius:14px;
-    padding:12px 14px;
     box-shadow:0 2px 8px var(--shadow);
+    overflow:hidden;
   }
   .match-card.tier-kesin{border-left-color:var(--tile);}
   .match-card.tier-olasi{border-left-color:var(--brass);}
+
+  .card-head{
+    width:100%;
+    display:block;
+    text-align:left;
+    background:none; border:none;
+    padding:12px 14px;
+    cursor:pointer;
+    font:inherit; color:inherit;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .card-head:active{background:var(--parchment-2);}
   .match-top{
     display:flex; align-items:center; justify-content:space-between;
     gap:8px; margin-bottom:6px;
@@ -225,10 +237,59 @@
     padding:2px 9px; border-radius:999px;
     font-variant-numeric:tabular-nums;
   }
+  .teams-row{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+  }
   .teams{
     font-weight:700; font-size:15px; line-height:1.3;
-    margin-bottom:10px;
   }
+  .chevron{
+    flex:none;
+    font-size:11px; color:var(--ink-faint);
+    transition:transform .25s ease;
+  }
+  .match-card.expanded .chevron{transform:rotate(180deg);}
+
+  .details{
+    display:grid;
+    grid-template-rows:0fr;
+    transition:grid-template-rows .28s ease;
+  }
+  .match-card.expanded .details{grid-template-rows:1fr;}
+  .details-inner{
+    min-height:0;
+    overflow:hidden;
+    opacity:0;
+    transform:translateY(-6px);
+    transition:opacity .22s ease, transform .22s ease;
+  }
+  .match-card.expanded .details-inner{opacity:1; transform:translateY(0);}
+  .details-content{
+    padding:0 14px 14px;
+    border-top:1px solid var(--border);
+    padding-top:11px;
+  }
+
+  .detail-rows{display:flex; flex-direction:column; gap:6px; margin-bottom:10px;}
+  .detail-row{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+  }
+  .detail-row .dl{
+    font-size:11px; font-weight:700; color:var(--ink-soft);
+  }
+  .detail-row .dv{
+    font-size:13px; font-weight:800; font-variant-numeric:tabular-nums;
+  }
+  .tier-chip{
+    font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.02em;
+    padding:3px 8px; border-radius:999px; flex:none;
+    color:#fff9ee;
+  }
+  .tier-chip.kesin{background:var(--tile-dark);}
+  .tier-chip.olasi{background:var(--brass-dark);}
+  .detail-row .dv.pct-kesin{color:var(--tile-dark);}
+  .detail-row .dv.pct-olasi{color:var(--brass-dark);}
+
   .odds-row{
     display:grid;
     grid-template-columns:repeat(3,1fr);
@@ -252,46 +313,6 @@
     font-variant-numeric:tabular-nums;
   }
   .odd-chip .val.dash{color:var(--ink-faint); font-weight:400;}
-
-  .stat-panel{
-    margin-top:10px;
-    padding:9px 11px 10px;
-    border-radius:11px;
-    background:var(--parchment-3);
-  }
-  .stat-panel-row{
-    display:flex; align-items:center; justify-content:space-between;
-    gap:8px;
-  }
-  .stat-panel-left{display:flex; align-items:center; gap:7px; min-width:0;}
-  .tier-chip{
-    font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.02em;
-    padding:3px 8px; border-radius:999px; flex:none;
-    color:#fff9ee;
-  }
-  .tier-chip.kesin{background:var(--tile-dark);}
-  .tier-chip.olasi{background:var(--brass-dark);}
-  .stat-fraction{
-    font-size:12px; font-weight:700; color:var(--ink-soft);
-    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-  }
-  .stat-pct{
-    font-size:19px; font-weight:800; font-variant-numeric:tabular-nums;
-    flex:none;
-  }
-  .stat-panel.tier-kesin .stat-pct{color:var(--tile-dark);}
-  .stat-panel.tier-olasi .stat-pct{color:var(--brass-dark);}
-  .progress-track{
-    margin-top:7px;
-    height:6px; border-radius:999px;
-    background:var(--parchment-2);
-    overflow:hidden;
-  }
-  .progress-fill{
-    height:100%; border-radius:999px;
-    background:linear-gradient(90deg, var(--tile), var(--tile-dark));
-  }
-  .stat-panel.tier-olasi .progress-fill{background:linear-gradient(90deg, var(--brass), var(--brass-dark));}
 
   footer{
     text-align:center; margin-top:36px; padding:0 20px;
@@ -448,28 +469,32 @@
 
   function matchCard(m){
     const tier = m.guven; // "kesin" | "olasi" | null
-    let html = '<div class="match-card' + (tier ? " tier-" + tier : "") + '">';
-    html += '<div class="match-top"><span class="league">' + escapeHtml(m.lig) + '</span>' +
-      '<span class="kickoff">' + fmtKickoff(m.macZamani) + '</span></div>';
-    html += '<div class="teams">' + escapeHtml(m.evSahibi) + ' — ' + escapeHtml(m.deplasman) + '</div>';
-    html += '<div class="odds-row">' +
+
+    let inner = '<div class="detail-rows">';
+    if (tier){
+      const pct = Math.round(m.tutmaOrani * 100);
+      inner += '<div class="detail-row"><span class="dl">Güven</span>' +
+        '<span class="tier-chip ' + tier + '">' + (tier === "kesin" ? "Kesin" : "Olası") + '</span></div>';
+      inner += '<div class="detail-row"><span class="dl">Kombinasyon</span>' +
+        '<span class="dv">' + Math.floor(m.iymsKg) + ' / ' + Math.floor(m.altUst6) + '</span></div>';
+      inner += '<div class="detail-row"><span class="dl">Arşiv</span>' +
+        '<span class="dv pct-' + tier + '">' + m.tutma + '/' + m.toplam + ' (' + pct + '%)</span></div>';
+    }
+    inner += '</div>';
+    inner += '<div class="odds-row">' +
       oddChip("MS KG", m.msKg) +
       oddChip("6+ Gol", m.altUst6) +
       oddChip("İY/MS KG", m.iymsKg) +
       '</div>';
-    if (tier){
-      const pct = Math.round(m.tutmaOrani * 100);
-      html += '<div class="stat-panel tier-' + tier + '">' +
-        '<div class="stat-panel-row">' +
-          '<div class="stat-panel-left">' +
-            '<span class="tier-chip ' + tier + '">' + (tier === "kesin" ? "Kesin" : "Olası") + '</span>' +
-            '<span class="stat-fraction">Çift (' + Math.floor(m.iymsKg) + '/' + Math.floor(m.altUst6) + ') geçmişte ' + m.toplam + ' maçta ' + m.tutma + ' kez tuttu</span>' +
-          '</div>' +
-          '<div class="stat-pct">' + pct + '%</div>' +
-        '</div>' +
-        '<div class="progress-track"><div class="progress-fill" style="width:' + pct + '%"></div></div>' +
-      '</div>';
-    }
+
+    let html = '<div class="match-card' + (tier ? " tier-" + tier : "") + '">';
+    html += '<button type="button" class="card-head">' +
+      '<div class="match-top"><span class="league">' + escapeHtml(m.lig) + '</span>' +
+        '<span class="kickoff">' + fmtKickoff(m.macZamani) + '</span></div>' +
+      '<div class="teams-row"><span class="teams">' + escapeHtml(m.evSahibi) + ' — ' + escapeHtml(m.deplasman) + '</span>' +
+        '<span class="chevron">▾</span></div>' +
+      '</button>';
+    html += '<div class="details"><div class="details-inner"><div class="details-content">' + inner + '</div></div></div>';
     html += '</div>';
     return html;
   }
@@ -510,6 +535,12 @@
     $("cntOlasi").textContent = allMatches.filter(m => m.guven === "olasi").length;
     $("cntTum").textContent = allMatches.length;
   }
+
+  $("list").addEventListener("click", (ev) => {
+    const head = ev.target.closest(".card-head");
+    if (!head) return;
+    head.closest(".match-card").classList.toggle("expanded");
+  });
 
   const ligSelectEl = $("ligSelect");
   ligSelectEl.addEventListener("change", () => { currentLeague = ligSelectEl.value; renderList(); });
