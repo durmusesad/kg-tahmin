@@ -1,5 +1,5 @@
 {
-  "guncellemeZamani": "2026-08-16T14:02:38.344601+03:00",
+  "guncellemeZamani": "2026-08-16T14:02:50.498925+03:00",
   "macSayisi": 316,
   "maclar": [
     {
@@ -173,14 +173,14 @@
       "evSahibi": "Degerfors IF",
       "deplasman": "IFK Göteborg",
       "macZamani": "2026-08-16T15:00:00+03:00",
-      "msKg": 1.51,
-      "altUst6": 12.75,
-      "iymsKg": 14.1,
+      "msKg": 1.5,
+      "altUst6": 12.65,
+      "iymsKg": 13.95,
       "onerilen": true,
-      "tutma": 1,
-      "toplam": 4,
-      "tutmaOrani": 0.25,
-      "guven": "olasi"
+      "tutma": 9,
+      "toplam": 9,
+      "tutmaOrani": 1.0,
+      "guven": "kesin"
     },
     {
       "id": "3059324",
@@ -293,7 +293,7 @@
       "evSahibi": "St. Pauli II",
       "deplasman": "W. Bremen II",
       "macZamani": "2026-08-16T15:00:00+03:00",
-      "msKg": 1.18,
+      "msKg": 1.19,
       "altUst6": null,
       "iymsKg": null,
       "onerilen": false,
@@ -1013,14 +1013,14 @@
       "evSahibi": "RAAL La Louviere",
       "deplasman": "KAA Gent",
       "macZamani": "2026-08-16T17:00:00+03:00",
-      "msKg": 1.68,
-      "altUst6": 20.2,
-      "iymsKg": 19.75,
+      "msKg": 1.66,
+      "altUst6": 19.2,
+      "iymsKg": 19.05,
       "onerilen": true,
       "tutma": 3,
-      "toplam": 4,
-      "tutmaOrani": 0.75,
-      "guven": "olasi"
+      "toplam": 3,
+      "tutmaOrani": 1.0,
+      "guven": "kesin"
     },
     {
       "id": "3059035",
@@ -1673,7 +1673,7 @@
       "evSahibi": "Sumgayit",
       "deplasman": "Neftçi",
       "macZamani": "2026-08-16T18:00:00+03:00",
-      "msKg": 1.63,
+      "msKg": 1.65,
       "altUst6": null,
       "iymsKg": null,
       "onerilen": false,
@@ -3908,7 +3908,7 @@
       "evSahibi": "Karabağ",
       "deplasman": "Shamakhi FK",
       "macZamani": "2026-08-17T18:30:00+03:00",
-      "msKg": 1.39,
+      "msKg": 1.38,
       "altUst6": null,
       "iymsKg": null,
       "onerilen": false,
