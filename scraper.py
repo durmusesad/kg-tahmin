@@ -10,6 +10,12 @@ Market kodları (MTID = Nesine market tipi id'si, canlı veriyle doğrulandı):
 Nesine resmi bir API dokümantasyonu yayınlamıyor; bu eşleşmeler binlerce
 canlı maçın oran şekli (kaç seçenek, hangisinin favori/nadir olduğu) analiz
 edilerek çıkarıldı. Nesine site yapısını değiştirirse burası güncellenmelidir.
+
+Tahmin mantığı: data/historical_stats.json içindeki geçmiş maç verisine
+(kullanıcının "UFUK CİVAŞ 2026 MODEL İDDAA" Excel tablosu) bakılır. Canlı
+maçın İY/MS KG ve 6+ Gol oranlarının küsüratsız (tam sayı) çifti, o çiftin
+geçmişte kaç kez denenip kaçında gerçekten KG (MS'de her iki takım da gol
+attı) çıktığıyla eşleştirilir. Çift geçmiş veride hiç yoksa maç önerilmez.
 """
 import json
 import logging
@@ -37,12 +43,12 @@ HEADERS = {
     "Accept": "application/json",
 }
 OUT_PATH = Path(__file__).parent / "data" / "odds.json"
+STATS_PATH = Path(__file__).parent / "data" / "historical_stats.json"
 
-# Tahmin kuralı: küsürat atılır (int()/floor), tam sayı kısmı TAM OLARAK bu
-# değerlere eşit olmalı (ör. "14 küsür" = 14,00-14,99 aralığı; 18 veya 21 gibi
-# başka bir değer eşleşmez). Bu yüzden >= değil == kullanılıyor.
-IYMS_KG_HEDEF = 14
-ALT_UST_6_HEDEF = 13
+
+def gecmis_istatistikleri_yukle():
+    veri = json.loads(STATS_PATH.read_text(encoding="utf-8"))
+    return veri.get("ciftler", {})
 
 
 def _lig_adi_bul(ligler, lc):
@@ -85,7 +91,7 @@ def bulten_cek():
     return resp.json()
 
 
-def maclari_isle(veri):
+def maclari_isle(veri, gecmis):
     sg = veri.get("sg", {})
     etkinlikler = sg.get("EA", [])
     ligler = sg.get("LA", [])
@@ -110,11 +116,18 @@ def maclari_isle(veri):
         alt_ust_6 = _oran_bul(ma, 43, 0.0, 4)
         iyms_kg = _oran_bul(ma, 801, 0.0, 3)
 
-        onerilen = (
-            iyms_kg is not None and alt_ust_6 is not None
-            and math.floor(iyms_kg) == IYMS_KG_HEDEF
-            and math.floor(alt_ust_6) == ALT_UST_6_HEDEF
-        )
+        onerilen = False
+        tutma = None
+        toplam = None
+        tutma_orani = None
+        if iyms_kg is not None and alt_ust_6 is not None:
+            cift_anahtari = f"{math.floor(iyms_kg)},{math.floor(alt_ust_6)}"
+            istatistik = gecmis.get(cift_anahtari)
+            if istatistik:
+                tutma = istatistik["tutma"]
+                toplam = istatistik["toplam"]
+                tutma_orani = tutma / toplam
+                onerilen = True
 
         maclar.append({
             "id": str(e.get("C", "")),
@@ -126,6 +139,9 @@ def maclari_isle(veri):
             "altUst6": alt_ust_6,
             "iymsKg": iyms_kg,
             "onerilen": onerilen,
+            "tutma": tutma,
+            "toplam": toplam,
+            "tutmaOrani": tutma_orani,
         })
 
     maclar.sort(key=lambda m: m["macZamani"])
@@ -133,6 +149,8 @@ def maclari_isle(veri):
 
 
 def main():
+    gecmis = gecmis_istatistikleri_yukle()
+
     try:
         veri = bulten_cek()
     except requests.exceptions.RequestException as hata:
@@ -142,7 +160,7 @@ def main():
             sys.exit(0)
         veri = None
 
-    maclar = maclari_isle(veri) if veri else []
+    maclar = maclari_isle(veri, gecmis) if veri else []
 
     cikti = {
         "guncellemeZamani": datetime.now(tz=ISTANBUL_TZ).isoformat(),

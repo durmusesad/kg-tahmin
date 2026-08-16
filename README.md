@@ -18,15 +18,28 @@ Canlı site: `https://drms02.github.io/kg-tahmin/` (GitHub Pages'te yayınlandı
 
 ## Tahmin mantığı
 
-Bir maç şu ikisi de sağlanırsa "KG Oynanabilir" olarak işaretlenir:
+`data/historical_stats.json`, kullanıcının "UFUK CİVAŞ 2026 MODEL İDDAA" adlı
+Excel tablosundan (493 geçmiş maç) türetilmiş bir bakış tablosudur: İY/MS KG
+ve 6+ Gol oranlarının **küsüratsız (tam sayı) çifti** anahtar olarak kullanılır
+(ör. `"14,13"`), değeri de o çiftin geçmişte kaç kez denenip kaçında gerçekten
+MS KG (karşılıklı gol) çıktığıdır.
 
-- İY/MS Karşılıklı Gol oranının tam sayı kısmı **tam olarak** 14 (yani 14,00–14,99 aralığı)
-- 6+ Gol oranının tam sayı kısmı **tam olarak** 13 (yani 13,00–13,99 aralığı)
+Canlı bir maçın İY/MS KG ve 6+ Gol oranları küsüratsız hale getirilip bu
+tabloda aranır:
 
-Eşik değil, belirli bir küsürat aralığı aranıyor (≥ değil ==). Bu tamamen
-kullanıcı tarafından belirlenmiş bir sezgisel kuraldır, istatistiksel bir
-garanti değildir. `scraper.py` içindeki `IYMS_KG_HEDEF` ve `ALT_UST_6_HEDEF`
-sabitlerinden değiştirilebilir.
+- Çift tabloda **yoksa** → maç önerilmez (geçmiş veri yok).
+- Çift tabloda **varsa** → maç listelenir, o çiftin geçmiş tutma oranıyla
+  (`tutma/toplam`) etiketlenir.
+
+Liste, tutma oranına göre büyükten küçüğe sıralanır (eşitlikte örnek sayısı
+fazla olan üste çıkar) — yani %100 tutan ve çok denenmiş çiftler en üstte,
+düşük oranlılar en altta görünür. Bu tamamen kullanıcının kendi Excel
+analizine dayanan sezgisel bir sıralamadır, istatistiksel bir garanti değildir
+ve özellikle 1-2 örnekli çiftlerin oranı güvenilir değildir.
+
+`data/historical_stats.json` statik bir anlık görüntüdür; Excel tablosu
+güncellendikçe yeniden üretilip commit'lenmesi gerekir (otomatik değildir,
+çünkü OneDrive'a kimlik doğrulamalı erişim CI'da yoktur).
 
 ## Market kodları (MTID)
 

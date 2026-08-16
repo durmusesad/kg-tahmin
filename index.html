@@ -181,6 +181,8 @@
     background:linear-gradient(90deg, var(--tile), var(--tile-dark));
     color:#fff;
   }
+  .rec-badge.mid{background:linear-gradient(90deg, var(--brass), var(--brass-dark));}
+  .rec-badge.low{background:linear-gradient(90deg, var(--seal), var(--seal-dark));}
   .rec-badge .txt{font-size:12.5px; font-weight:700;}
   .rec-badge .odd{
     font-size:15px; font-weight:700;
@@ -204,7 +206,7 @@
 
 <header class="top">
   <h1>⚽ KG Tahmin</h1>
-  <p class="sub">Nesine bülteninden İY/MS KG ve 6+ Gol oranlarına bakarak Karşılıklı Gol fırsatlarını bulur.</p>
+  <p class="sub">Nesine bülteninden İY/MS KG ve 6+ Gol oranlarının küsüratsız çiftini, geçmiş maç istatistikleriyle eşleştirip tutma oranına göre sıralar.</p>
   <div class="status-bar">
     <span class="status-pill live" id="updatedPill">Yükleniyor…</span>
     <span class="status-pill" id="countPill">—</span>
@@ -214,10 +216,10 @@
 
 <main>
   <div class="section-head rec">
-    <h2>🔥 KG Oynanabilir</h2>
+    <h2>🔥 Geçmiş Verili Maçlar</h2>
     <span class="count" id="recCount">0</span>
   </div>
-  <p class="section-note">İY/MS KG oranı 14 küsür, 6+ Gol oranı 13 küsür olan maçlar. Saate göre sıralı.</p>
+  <p class="section-note">Oran çifti (İY/MS KG, 6+ Gol) geçmişte bu tam sayılarla en az bir kez görülmüş maçlar. Tutma oranı en yüksek (%100, çok denenmiş) en üstte, düşük olanlar en altta.</p>
   <div class="match-list" id="recList"></div>
   <div class="empty-note" id="recEmpty" style="display:none;">Şu anda kriterlere uyan maç yok.</div>
 
@@ -263,6 +265,10 @@
       '<div class="val' + (v===null ? " dash" : "") + '">' + (v===null ? "–" : v) + '</div></div>';
   }
 
+  function fmtPct(rate){
+    return Math.round(rate * 100) + "%";
+  }
+
   function matchCard(m){
     const rec = m.onerilen;
     let html = '<div class="match-card' + (rec ? " rec" : "") + '">';
@@ -275,8 +281,10 @@
       oddChip("İY/MS KG", m.iymsKg) +
       '</div>';
     if (rec){
-      html += '<div class="rec-badge"><span class="txt">🔥 KG oynanabilir — MS KG oranı</span>' +
-        '<span class="odd">' + fmtOdd(m.msKg) + '</span></div>';
+      const tier = m.tutmaOrani >= 0.7 ? "" : (m.tutmaOrani >= 0.4 ? " mid" : " low");
+      html += '<div class="rec-badge' + tier + '"><span class="txt">📊 Geçmişte bu çift (' +
+        Math.floor(m.iymsKg) + ' / ' + Math.floor(m.altUst6) + ') ' + m.toplam + ' maçta ' + m.tutma + ' kez tutmuş</span>' +
+        '<span class="odd">' + fmtPct(m.tutmaOrani) + '</span></div>';
     }
     html += '</div>';
     return html;
@@ -290,7 +298,10 @@
 
   function render(data){
     const maclar = data.maclar || [];
-    const rec = maclar.filter(m => m.onerilen);
+    const rec = maclar.filter(m => m.onerilen).sort((a, b) => {
+      if (b.tutmaOrani !== a.tutmaOrani) return b.tutmaOrani - a.tutmaOrani;
+      return b.toplam - a.toplam;
+    });
     const rest = maclar.filter(m => !m.onerilen);
 
     $("recCount").textContent = rec.length;
