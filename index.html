@@ -26,8 +26,8 @@
     --shadow:rgba(20,16,10,.10);
     --border:color-mix(in srgb, var(--brass) 32%, transparent);
     --focus:#2f7de1;
-    --kupon:#6d5dd3;
-    --kupon-dark:#5245ad;
+    --kupon:var(--seal);
+    --kupon-dark:var(--seal-dark);
     color-scheme: light;
   }
   :root[data-theme="dark"]{
@@ -47,8 +47,8 @@
     --shadow:rgba(0,0,0,.45);
     --border:color-mix(in srgb, var(--brass) 30%, transparent);
     --focus:#6fa3e0;
-    --kupon:#8577dd;
-    --kupon-dark:#6a5cc0;
+    --kupon:var(--seal);
+    --kupon-dark:var(--seal-dark);
     color-scheme: dark;
   }
   *{box-sizing:border-box;}
@@ -60,7 +60,10 @@
     -webkit-tap-highlight-color:transparent;
     overscroll-behavior-y:contain;
     padding-bottom:40px;
-    transition:background-color .2s ease, color .2s ease;
+    transition:background-color .2s ease, color .2s ease, padding-bottom .2s ease;
+  }
+  body.has-kupon{
+    padding-bottom:calc(76px + env(safe-area-inset-bottom));
   }
   h1,h2,.display{
     font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif;
@@ -338,60 +341,48 @@
   }
 
   /* ============== KUPON (kazanç hesaplayıcı) ============== */
-  .kupon-fab{
-    position:fixed; right:16px; bottom:16px; z-index:60;
-    width:52px; height:52px; border-radius:50%;
-    display:none; align-items:center; justify-content:center;
-    background:var(--kupon);
-    color:#fff;
+  .kupon-pill{
+    position:fixed; left:50%; bottom:16px; z-index:60;
+    bottom:calc(16px + env(safe-area-inset-bottom));
+    transform:translateX(-50%);
+    display:none; align-items:center; gap:10px;
+    padding:11px 20px;
+    border-radius:999px;
     border:none; cursor:pointer;
-    box-shadow:0 6px 18px rgba(0,0,0,.3);
-    transition:transform .18s ease;
+    background:linear-gradient(90deg, var(--kupon), var(--kupon-dark));
+    color:#fff;
+    box-shadow:0 8px 22px rgba(0,0,0,.35);
+    transition:transform .15s ease;
   }
-  .kupon-fab.visible{display:flex;}
-  .kupon-fab:active{transform:scale(.94);}
-  .kupon-fab .fab-n{font-size:18px; font-weight:800; line-height:1;}
-  .kupon-fab .fab-l{font-size:7.5px; font-weight:700; text-transform:uppercase; opacity:.85;}
+  .kupon-pill.visible{display:flex;}
+  .kupon-pill:active{transform:translateX(-50%) scale(.96);}
+  .kupon-pill .pill-seg{font-size:12.5px; font-weight:700; white-space:nowrap;}
+  .kupon-pill .pill-seg b{font-size:15px; font-weight:800;}
+  .kupon-pill .pill-div{width:1px; height:18px; background:rgba(255,255,255,.4);}
 
-  .kupon-panel-wrap{
-    position:fixed; right:16px; bottom:78px; left:16px; z-index:59;
-    max-width:360px; margin-left:auto;
-    display:grid;
-    grid-template-rows:0fr;
-    transition:grid-template-rows .26s ease;
-    pointer-events:none;
+  .kupon-screen{
+    animation:kuponScreenIn .22s ease;
   }
-  .kupon-panel-wrap.open{grid-template-rows:1fr; pointer-events:auto;}
-  .kupon-panel-inner{
-    min-height:0; overflow:hidden;
-    opacity:0; transform:scale(.92) translateY(8px);
-    transform-origin:bottom right;
-    transition:opacity .2s ease, transform .22s ease;
+  .back-link{
+    display:inline-flex; align-items:center; gap:5px;
+    border:none; background:none; color:var(--kupon);
+    font-size:13px; font-weight:700; cursor:pointer;
+    padding:4px 0; margin-bottom:10px;
   }
-  .kupon-panel-wrap.open .kupon-panel-inner{opacity:1; transform:scale(1) translateY(0);}
-  .kupon-panel{
+  .kupon-screen-card{
     background:var(--card-bg);
     border:1px solid var(--border);
-    border-radius:16px;
-    box-shadow:0 10px 32px rgba(0,0,0,.28);
-    display:flex; flex-direction:column;
-    max-height:70vh;
+    border-radius:14px;
+    overflow:hidden;
   }
   .kupon-head{
     display:flex; align-items:center; justify-content:space-between;
-    padding:12px 14px 8px;
+    padding:14px 16px 10px;
     flex:none;
   }
-  .kupon-head h2{margin:0; font-size:14.5px; color:var(--kupon);}
-  .kupon-close{
-    border:none; background:var(--parchment-2); color:var(--ink-soft);
-    width:24px; height:24px; border-radius:999px;
-    font-size:12px; line-height:1; cursor:pointer;
-  }
+  .kupon-head h2{margin:0; font-size:16px; color:var(--kupon);}
   .kupon-list{
-    overflow-y:auto; flex:1 1 auto;
-    padding:0 14px;
-    max-height:34vh;
+    padding:0 16px;
   }
   .kupon-item{
     display:flex; align-items:center; justify-content:space-between;
@@ -422,8 +413,9 @@
     padding:22px 10px;
   }
   .kupon-calc{
-    flex:none;
-    padding:10px 14px calc(12px + env(safe-area-inset-bottom));
+    padding:10px 16px 16px;
+    border-top:1px solid var(--border);
+    margin-top:6px;
   }
   .kupon-calc-row{
     display:flex; align-items:baseline; justify-content:space-between;
@@ -468,6 +460,10 @@
     from{opacity:0; transform:translateX(-8px);}
     to{opacity:1; transform:translateX(0);}
   }
+  @keyframes kuponScreenIn{
+    from{opacity:0; transform:translateY(10px);}
+    to{opacity:1; transform:translateY(0);}
+  }
 
   footer{
     text-align:center; margin-top:36px; padding:0 20px;
@@ -504,40 +500,34 @@
 </header>
 
 <main>
-  <div class="filter-bar">
-    <div class="tabs">
-      <button class="tab-btn active" id="tabKesin" data-tab="kesin">Kesin<span class="cnt" id="cntKesin">0</span></button>
-      <button class="tab-btn" id="tabOlasi" data-tab="olasi">Olası<span class="cnt" id="cntOlasi">0</span></button>
-      <button class="tab-btn" id="tabTum" data-tab="tum">Tüm Bülten<span class="cnt" id="cntTum">0</span></button>
-    </div>
-    <div class="filter-controls">
-      <div>
-        <label for="ligSelect">Lig</label>
-        <select id="ligSelect"><option value="">Tüm Ligler</option></select>
+  <div id="bultenScreen">
+    <div class="filter-bar">
+      <div class="tabs">
+        <button class="tab-btn active" id="tabKesin" data-tab="kesin">Kesin<span class="cnt" id="cntKesin">0</span></button>
+        <button class="tab-btn" id="tabOlasi" data-tab="olasi">Olası<span class="cnt" id="cntOlasi">0</span></button>
+        <button class="tab-btn" id="tabTum" data-tab="tum">Tüm Bülten<span class="cnt" id="cntTum">0</span></button>
       </div>
-      <div>
-        <label for="sortSelect">Sırala</label>
-        <select id="sortSelect"></select>
+      <div class="filter-controls">
+        <div>
+          <label for="ligSelect">Lig</label>
+          <select id="ligSelect"><option value="">Tüm Ligler</option></select>
+        </div>
+        <div>
+          <label for="sortSelect">Sırala</label>
+          <select id="sortSelect"></select>
+        </div>
       </div>
     </div>
+
+    <p class="section-note" id="tabNote"></p>
+    <div class="match-list" id="list"></div>
+    <div class="empty-note" id="emptyNote" style="display:none;">Kriterlere uyan maç yok.</div>
   </div>
 
-  <p class="section-note" id="tabNote"></p>
-  <div class="match-list" id="list"></div>
-  <div class="empty-note" id="emptyNote" style="display:none;">Kriterlere uyan maç yok.</div>
-</main>
-
-<footer>
-  Oranlar Nesine.com bültenindendir, yalnızca bilgilendirme amaçlıdır. Yatırım/bahis tavsiyesi değildir.
-</footer>
-
-<div class="kupon-panel-wrap" id="kuponPanelWrap">
-  <div class="kupon-panel-inner">
-    <div class="kupon-panel">
-      <div class="kupon-head">
-        <h2>Kuponum</h2>
-        <button class="kupon-close" id="kuponCloseBtn">✕</button>
-      </div>
+  <section id="kuponScreen" class="kupon-screen" hidden>
+    <button type="button" class="back-link" id="kuponBackBtn">‹ Bültene Dön</button>
+    <div class="kupon-screen-card">
+      <div class="kupon-head"><h2>Kuponum</h2></div>
       <div class="kupon-list" id="kuponList"></div>
       <div class="kupon-calc">
         <div class="kupon-calc-row"><span>Maç Sayısı</span><span class="v" id="calcCount">0</span></div>
@@ -554,11 +544,17 @@
         <p class="kupon-note">Oranlar iddaa.com tahmini (Nesine × 1,037). Gerçek bahis değildir, sadece kazanç hesaplayıcıdır.</p>
       </div>
     </div>
-  </div>
-</div>
+  </section>
+</main>
 
-<button type="button" class="kupon-fab" id="kuponFab">
-  <span><span class="fab-n" id="kuponFabCount">0</span><br><span class="fab-l">Maç</span></span>
+<footer>
+  Oranlar Nesine.com bültenindendir, yalnızca bilgilendirme amaçlıdır. Yatırım/bahis tavsiyesi değildir.
+</footer>
+
+<button type="button" class="kupon-pill" id="kuponPill">
+  <span class="pill-seg"><b id="kuponPillCount">0</b> Maç</span>
+  <span class="pill-div"></span>
+  <span class="pill-seg"><b id="kuponPillOran">0,00</b> Oran</span>
 </button>
 
 <script>
@@ -654,15 +650,17 @@
     renderList();
   }
 
-  function renderKuponFab(){
-    const fab = $("kuponFab");
+  function renderKuponPill(){
+    const pill = $("kuponPill");
+    document.body.classList.toggle("has-kupon", kupon.length > 0);
     if (kupon.length === 0){
-      fab.classList.remove("visible");
-      $("kuponPanelWrap").classList.remove("open");
+      pill.classList.remove("visible");
+      hideKuponScreen();
       return;
     }
-    fab.classList.add("visible");
-    $("kuponFabCount").textContent = kupon.length;
+    pill.classList.add("visible");
+    $("kuponPillCount").textContent = kupon.length;
+    $("kuponPillOran").textContent = fmtOdd(kuponOranToplam());
   }
 
   function renderKuponList(){
@@ -695,13 +693,19 @@
   }
 
   function renderKupon(){
-    renderKuponFab();
+    renderKuponPill();
     renderKuponList();
     renderKuponCalc();
   }
 
-  function toggleKuponPanel(){ $("kuponPanelWrap").classList.toggle("open"); }
-  function closeKuponPanel(){ $("kuponPanelWrap").classList.remove("open"); }
+  function showKuponScreen(){
+    $("bultenScreen").hidden = true;
+    $("kuponScreen").hidden = false;
+  }
+  function hideKuponScreen(){
+    $("kuponScreen").hidden = true;
+    $("bultenScreen").hidden = false;
+  }
 
   function removeFromKupon(id){
     const node = $("kuponList").querySelector('.kupon-item[data-id="' + CSS.escape(id) + '"]');
@@ -716,8 +720,8 @@
     setTimeout(finish, 260);
   }
 
-  $("kuponFab").addEventListener("click", toggleKuponPanel);
-  $("kuponCloseBtn").addEventListener("click", closeKuponPanel);
+  $("kuponPill").addEventListener("click", showKuponScreen);
+  $("kuponBackBtn").addEventListener("click", hideKuponScreen);
   $("kuponClearBtn").addEventListener("click", () => {
     kupon = [];
     saveKupon();
