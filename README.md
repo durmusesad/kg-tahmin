@@ -16,6 +16,22 @@ Canlı site: `https://drms02.github.io/kg-tahmin/` (GitHub Pages'te yayınlandı
 - `index.html` tamamen statiktir; `data/odds.json`'ı okuyup listeler, sayfa
   görünür olduğunda ve her 3 dakikada bir kendini yeniler. Sunucu/backend yoktur.
 
+## Kupon (kazanç hesaplayıcı)
+
+Nesine mobil uygulamasındaki kupon deneyimine benzer, tamamen istemci
+tarafında çalışan bir hesaplayıcı: bir maçın detayını açıp "Kupona Ekle"ye
+basınca o maç "Karşılıklı Gol · Var" seçimiyle kupona eklenir, ekranın altında
+maç sayısı ve toplam oranı gösteren bir çubuk belirir, çubuğa dokununca
+Nesine'deki gibi bir alt sekme (bottom sheet) açılır. Orada sadece bir
+**tutar** girilir ve **olası kazanç** hesaplanır — tekli/kombine/sistem
+oyunu ayrımı ya da kupon adedi yoktur, sadece basit bir kazanç tahmini.
+
+Kupondaki oranlar sitenin geri kalanında kullanılan ham Nesine oranı
+**değildir** — iddaa.com'un (resmi İddaa sitesi) aynı maçlarda Nesine'den
+ortalama %3,7 daha yüksek oran gösterdiği gözlemine dayanarak her oran
+`× 1.037` ile çarpılıp gösterilir (`IDDAA_CARPAN` sabiti, `index.html`
+içinde). Kupon `localStorage`'da tutulur, sayfa yenilense de kaybolmaz.
+
 ## Tahmin mantığı
 
 `data/historical_stats.json`, kullanıcının "UFUK CİVAŞ 2026 MODEL İDDAA" adlı
