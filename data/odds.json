@@ -1,5 +1,5 @@
 {
-  "guncellemeZamani": "2026-08-17T01:36:20.565962+03:00",
+  "guncellemeZamani": "2026-08-17T01:57:34.581184+03:00",
   "macSayisi": 97,
   "maclar": [
     {
@@ -8,13 +8,13 @@
       "evSahibi": "America",
       "deplasman": "Atl San Luis",
       "macZamani": "2026-08-17T02:00:00+03:00",
-      "msKg": 1.56,
-      "altUst6": 13.05,
-      "iymsKg": 15.55,
+      "msKg": 1.54,
+      "altUst6": 12.45,
+      "iymsKg": 15.25,
       "onerilen": true,
       "tutma": 3,
-      "toplam": 6,
-      "tutmaOrani": 0.5,
+      "toplam": 4,
+      "tutmaOrani": 0.75,
       "guven": "olasi"
     },
     {
@@ -128,7 +128,7 @@
       "evSahibi": "Unan Managua",
       "deplasman": "ART Jalapa",
       "macZamani": "2026-08-17T03:00:00+03:00",
-      "msKg": 1.46,
+      "msKg": 1.49,
       "altUst6": null,
       "iymsKg": null,
       "onerilen": false,
@@ -803,7 +803,7 @@
       "evSahibi": "AB Argir",
       "deplasman": "Klaksvik",
       "macZamani": "2026-08-17T20:30:00+03:00",
-      "msKg": 1.63,
+      "msKg": 1.62,
       "altUst6": null,
       "iymsKg": null,
       "onerilen": false,
@@ -1134,7 +1134,7 @@
       "deplasman": "Lecce",
       "macZamani": "2026-08-17T22:15:00+03:00",
       "msKg": 1.57,
-      "altUst6": 15.9,
+      "altUst6": 15.85,
       "iymsKg": 16.5,
       "onerilen": true,
       "tutma": 8,
