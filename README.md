@@ -20,11 +20,12 @@ Canlı site: `https://drms02.github.io/kg-tahmin/` (GitHub Pages'te yayınlandı
 
 Bir maç şu ikisi de sağlanırsa "KG Oynanabilir" olarak işaretlenir:
 
-- İY/MS Karşılıklı Gol oranının tam kısmı ≥ 14
-- 6+ Gol oranının tam kısmı ≥ 13
+- İY/MS Karşılıklı Gol oranının tam sayı kısmı **tam olarak** 14 (yani 14,00–14,99 aralığı)
+- 6+ Gol oranının tam sayı kısmı **tam olarak** 13 (yani 13,00–13,99 aralığı)
 
-Bu tamamen kullanıcı tarafından belirlenmiş bir sezgisel eşiktir, istatistiksel
-bir garanti değildir. `scraper.py` içindeki `IYMS_KG_ESIK` ve `ALT_UST_6_ESIK`
+Eşik değil, belirli bir küsürat aralığı aranıyor (≥ değil ==). Bu tamamen
+kullanıcı tarafından belirlenmiş bir sezgisel kuraldır, istatistiksel bir
+garanti değildir. `scraper.py` içindeki `IYMS_KG_HEDEF` ve `ALT_UST_6_HEDEF`
 sabitlerinden değiştirilebilir.
 
 ## Market kodları (MTID)

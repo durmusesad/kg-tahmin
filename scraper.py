@@ -38,9 +38,11 @@ HEADERS = {
 }
 OUT_PATH = Path(__file__).parent / "data" / "odds.json"
 
-# Tahmin eşikleri: küsürat atılır (int()), tam sayı kısmına bakılır.
-IYMS_KG_ESIK = 14
-ALT_UST_6_ESIK = 13
+# Tahmin kuralı: küsürat atılır (int()/floor), tam sayı kısmı TAM OLARAK bu
+# değerlere eşit olmalı (ör. "14 küsür" = 14,00-14,99 aralığı; 18 veya 21 gibi
+# başka bir değer eşleşmez). Bu yüzden >= değil == kullanılıyor.
+IYMS_KG_HEDEF = 14
+ALT_UST_6_HEDEF = 13
 
 
 def _lig_adi_bul(ligler, lc):
@@ -110,8 +112,8 @@ def maclari_isle(veri):
 
         onerilen = (
             iyms_kg is not None and alt_ust_6 is not None
-            and math.floor(iyms_kg) >= IYMS_KG_ESIK
-            and math.floor(alt_ust_6) >= ALT_UST_6_ESIK
+            and math.floor(iyms_kg) == IYMS_KG_HEDEF
+            and math.floor(alt_ust_6) == ALT_UST_6_HEDEF
         )
 
         maclar.append({

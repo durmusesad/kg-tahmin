@@ -1,5 +1,5 @@
 {
-  "guncellemeZamani": "2026-08-16T11:35:50.771810+03:00",
+  "guncellemeZamani": "2026-08-16T11:52:20.541072+03:00",
   "macSayisi": 345,
   "maclar": [
     {
@@ -22,7 +22,7 @@
       "msKg": 1.64,
       "altUst6": 16.45,
       "iymsKg": 18.5,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3056781",
@@ -52,7 +52,7 @@
       "evSahibi": "Osaka",
       "deplasman": "AC N. Parceiro",
       "macZamani": "2026-08-16T12:00:00+03:00",
-      "msKg": 1.83,
+      "msKg": 1.79,
       "altUst6": null,
       "iymsKg": null,
       "onerilen": false
@@ -88,7 +88,7 @@
       "msKg": 1.59,
       "altUst6": 17.15,
       "iymsKg": 17.4,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3056991",
@@ -99,7 +99,7 @@
       "msKg": 1.78,
       "altUst6": 28.5,
       "iymsKg": 24.65,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3056878",
@@ -176,7 +176,7 @@
       "msKg": 1.73,
       "altUst6": 15.55,
       "iymsKg": 19.9,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3059002",
@@ -209,7 +209,7 @@
       "msKg": 1.73,
       "altUst6": 22.05,
       "iymsKg": 21.65,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3059053",
@@ -220,7 +220,7 @@
       "msKg": 1.77,
       "altUst6": 27.0,
       "iymsKg": 24.2,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3059266",
@@ -242,7 +242,7 @@
       "msKg": 1.55,
       "altUst6": 14.4,
       "iymsKg": 15.4,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3058962",
@@ -316,10 +316,10 @@
       "evSahibi": "Shenzhen Juniors",
       "deplasman": "Shang J. C.",
       "macZamani": "2026-08-16T14:00:00+03:00",
-      "msKg": 1.52,
-      "altUst6": 13.35,
-      "iymsKg": 14.95,
-      "onerilen": true
+      "msKg": 1.53,
+      "altUst6": 13.3,
+      "iymsKg": 15.15,
+      "onerilen": false
     },
     {
       "id": "3059247",
@@ -363,7 +363,7 @@
       "msKg": 1.78,
       "altUst6": 26.0,
       "iymsKg": 24.2,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3059423",
@@ -426,9 +426,9 @@
       "evSahibi": "Hannover 96",
       "deplasman": "Wolfsburg",
       "macZamani": "2026-08-16T14:30:00+03:00",
-      "msKg": 1.31,
-      "altUst6": 7.26,
-      "iymsKg": 8.95,
+      "msKg": 1.32,
+      "altUst6": 7.53,
+      "iymsKg": 9.21,
       "onerilen": false
     },
     {
@@ -440,7 +440,7 @@
       "msKg": 1.7,
       "altUst6": 23.8,
       "iymsKg": 21.55,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3059426",
@@ -451,7 +451,7 @@
       "msKg": 1.59,
       "altUst6": 16.35,
       "iymsKg": 17.4,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3059461",
@@ -473,7 +473,7 @@
       "msKg": 1.62,
       "altUst6": 13.9,
       "iymsKg": 16.8,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3059496",
@@ -756,9 +756,9 @@
       "evSahibi": "Stenhousemuir",
       "deplasman": "Motherwell",
       "macZamani": "2026-08-16T16:00:00+03:00",
-      "msKg": 1.64,
-      "altUst6": 7.8,
-      "iymsKg": 15.3,
+      "msKg": 1.62,
+      "altUst6": 7.48,
+      "iymsKg": 14.75,
       "onerilen": false
     },
     {
@@ -770,7 +770,7 @@
       "msKg": 1.7,
       "altUst6": 23.35,
       "iymsKg": 21.25,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3056751",
@@ -880,7 +880,7 @@
       "msKg": 2.21,
       "altUst6": 15.05,
       "iymsKg": 33.5,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3059378",
@@ -976,7 +976,7 @@
       "evSahibi": "Hutnik Krakow",
       "deplasman": "Legia Varşova II",
       "macZamani": "2026-08-16T17:00:00+03:00",
-      "msKg": 1.35,
+      "msKg": 1.36,
       "altUst6": 9.04,
       "iymsKg": 10.4,
       "onerilen": false
@@ -1001,7 +1001,7 @@
       "msKg": 1.57,
       "altUst6": 14.5,
       "iymsKg": 16.1,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3136311",
@@ -1034,7 +1034,7 @@
       "msKg": 1.77,
       "altUst6": 26.0,
       "iymsKg": 23.8,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3057159",
@@ -1045,7 +1045,7 @@
       "msKg": 1.72,
       "altUst6": 19.05,
       "iymsKg": 21.1,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3059086",
@@ -1078,7 +1078,7 @@
       "msKg": 1.62,
       "altUst6": 17.6,
       "iymsKg": 17.8,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3058990",
@@ -1089,7 +1089,7 @@
       "msKg": 1.59,
       "altUst6": 16.5,
       "iymsKg": 16.9,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3059035",
@@ -1221,7 +1221,7 @@
       "msKg": 1.55,
       "altUst6": 16.5,
       "iymsKg": 16.35,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3059212",
@@ -1364,7 +1364,7 @@
       "msKg": 1.83,
       "altUst6": 24.2,
       "iymsKg": 24.65,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3059306",
@@ -1474,7 +1474,7 @@
       "msKg": 1.59,
       "altUst6": 16.55,
       "iymsKg": 16.95,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3059400",
@@ -1559,7 +1559,7 @@
       "evSahibi": "Sumgayit",
       "deplasman": "Neftçi",
       "macZamani": "2026-08-16T18:00:00+03:00",
-      "msKg": 1.63,
+      "msKg": 1.61,
       "altUst6": null,
       "iymsKg": null,
       "onerilen": false
@@ -1582,9 +1582,9 @@
       "deplasman": "Rakow C.",
       "macZamani": "2026-08-16T18:30:00+03:00",
       "msKg": 1.58,
-      "altUst6": 18.05,
+      "altUst6": 18.1,
       "iymsKg": 17.45,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3059032",
@@ -1617,7 +1617,7 @@
       "msKg": 1.58,
       "altUst6": 15.0,
       "iymsKg": 16.6,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3057367",
@@ -1661,7 +1661,7 @@
       "msKg": 1.82,
       "altUst6": 32.0,
       "iymsKg": 26.5,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3059383",
@@ -1694,7 +1694,7 @@
       "msKg": 1.77,
       "altUst6": 13.95,
       "iymsKg": 20.35,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3056726",
@@ -1705,7 +1705,7 @@
       "msKg": 1.52,
       "altUst6": 14.9,
       "iymsKg": 15.25,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3054062",
@@ -1870,7 +1870,7 @@
       "msKg": 1.57,
       "altUst6": 15.75,
       "iymsKg": 16.25,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3059050",
@@ -1881,7 +1881,7 @@
       "msKg": 1.66,
       "altUst6": 18.25,
       "iymsKg": 19.1,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3057072",
@@ -1892,7 +1892,7 @@
       "msKg": 1.57,
       "altUst6": 17.25,
       "iymsKg": 16.95,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3059314",
@@ -1969,7 +1969,7 @@
       "msKg": 1.71,
       "altUst6": 20.4,
       "iymsKg": 20.8,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3059397",
@@ -1991,7 +1991,7 @@
       "msKg": 1.7,
       "altUst6": 20.75,
       "iymsKg": 20.4,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3059029",
@@ -2002,7 +2002,7 @@
       "msKg": 1.74,
       "altUst6": 13.9,
       "iymsKg": 19.45,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3057460",
@@ -2024,7 +2024,7 @@
       "msKg": 1.71,
       "altUst6": 20.0,
       "iymsKg": 20.55,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3059488",
@@ -2035,7 +2035,7 @@
       "msKg": 1.65,
       "altUst6": 20.5,
       "iymsKg": 19.7,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3059337",
@@ -2167,7 +2167,7 @@
       "msKg": 1.55,
       "altUst6": 16.35,
       "iymsKg": 16.3,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3056688",
@@ -2211,7 +2211,7 @@
       "msKg": 2.21,
       "altUst6": 34.5,
       "iymsKg": 34.5,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3042026",
@@ -2420,7 +2420,7 @@
       "msKg": 1.52,
       "altUst6": 15.3,
       "iymsKg": 15.5,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3054240",
@@ -2464,7 +2464,7 @@
       "msKg": 1.77,
       "altUst6": 16.35,
       "iymsKg": 21.15,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3059296",
@@ -2530,7 +2530,7 @@
       "msKg": 1.69,
       "altUst6": 16.25,
       "iymsKg": 19.05,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3058980",
@@ -2552,7 +2552,7 @@
       "msKg": 1.58,
       "altUst6": 13.05,
       "iymsKg": 16.15,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3059044",
@@ -2563,7 +2563,7 @@
       "msKg": 1.64,
       "altUst6": 16.3,
       "iymsKg": 18.1,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3061817",
@@ -2618,7 +2618,7 @@
       "msKg": 1.7,
       "altUst6": 15.65,
       "iymsKg": 19.05,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3059474",
@@ -2629,7 +2629,7 @@
       "msKg": 1.77,
       "altUst6": 18.35,
       "iymsKg": 21.65,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3042029",
@@ -2695,7 +2695,7 @@
       "msKg": 2.04,
       "altUst6": 34.5,
       "iymsKg": 34.0,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3143512",
@@ -2772,7 +2772,7 @@
       "msKg": 1.57,
       "altUst6": 15.85,
       "iymsKg": 16.5,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3057247",
@@ -2783,7 +2783,7 @@
       "msKg": 1.89,
       "altUst6": 34.0,
       "iymsKg": 28.5,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3057563",
@@ -2794,7 +2794,7 @@
       "msKg": 1.59,
       "altUst6": 18.3,
       "iymsKg": 17.8,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3059246",
@@ -2816,7 +2816,7 @@
       "msKg": 1.64,
       "altUst6": 15.65,
       "iymsKg": 17.95,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3135520",
@@ -2882,7 +2882,7 @@
       "msKg": 1.87,
       "altUst6": 30.5,
       "iymsKg": 27.0,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3059188",
@@ -2959,7 +2959,7 @@
       "msKg": 2.03,
       "altUst6": 34.5,
       "iymsKg": 34.0,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3109673",
@@ -2970,7 +2970,7 @@
       "msKg": 2.08,
       "altUst6": 34.5,
       "iymsKg": 34.5,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3078557",
@@ -3179,7 +3179,7 @@
       "msKg": 1.6,
       "altUst6": 16.9,
       "iymsKg": 17.55,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3138848",
@@ -3212,7 +3212,7 @@
       "msKg": 1.7,
       "altUst6": 18.1,
       "iymsKg": 20.0,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3057058",
@@ -3278,7 +3278,7 @@
       "msKg": 1.84,
       "altUst6": 22.05,
       "iymsKg": 24.65,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3059556",
@@ -3289,7 +3289,7 @@
       "msKg": 1.6,
       "altUst6": 18.3,
       "iymsKg": 17.85,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3061822",
@@ -3355,7 +3355,7 @@
       "msKg": 2.11,
       "altUst6": 34.5,
       "iymsKg": 34.5,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3061750",
@@ -3509,7 +3509,7 @@
       "msKg": 1.58,
       "altUst6": 15.4,
       "iymsKg": 16.45,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3061785",
@@ -3520,7 +3520,7 @@
       "msKg": 1.77,
       "altUst6": 21.4,
       "iymsKg": 22.5,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3061720",
@@ -3542,7 +3542,7 @@
       "msKg": 1.74,
       "altUst6": 23.8,
       "iymsKg": 22.5,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3061808",
@@ -3553,7 +3553,7 @@
       "msKg": 1.57,
       "altUst6": 15.9,
       "iymsKg": 16.5,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3059353",
@@ -3619,7 +3619,7 @@
       "msKg": 2.04,
       "altUst6": 34.5,
       "iymsKg": 34.5,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3109686",
@@ -3630,7 +3630,7 @@
       "msKg": 1.97,
       "altUst6": 27.0,
       "iymsKg": 29.5,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3061726",
@@ -3663,7 +3663,7 @@
       "msKg": 2.08,
       "altUst6": 34.5,
       "iymsKg": 34.5,
-      "onerilen": true
+      "onerilen": false
     },
     {
       "id": "3063186",
