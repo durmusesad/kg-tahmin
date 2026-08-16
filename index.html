@@ -26,6 +26,8 @@
     --shadow:rgba(20,16,10,.10);
     --border:color-mix(in srgb, var(--brass) 32%, transparent);
     --focus:#2f7de1;
+    --kupon:#6d5dd3;
+    --kupon-dark:#5245ad;
     color-scheme: light;
   }
   :root[data-theme="dark"]{
@@ -45,6 +47,8 @@
     --shadow:rgba(0,0,0,.45);
     --border:color-mix(in srgb, var(--brass) 30%, transparent);
     --focus:#6fa3e0;
+    --kupon:#8577dd;
+    --kupon-dark:#6a5cc0;
     color-scheme: dark;
   }
   *{box-sizing:border-box;}
@@ -56,9 +60,8 @@
     -webkit-tap-highlight-color:transparent;
     overscroll-behavior-y:contain;
     padding-bottom:40px;
-    transition:background-color .2s ease, color .2s ease, padding-bottom .2s ease;
+    transition:background-color .2s ease, color .2s ease;
   }
-  body.has-kupon{padding-bottom:calc(64px + env(safe-area-inset-bottom));}
   h1,h2,.display{
     font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif;
     text-wrap:balance;
@@ -101,6 +104,10 @@
     cursor:pointer; white-space:nowrap;
   }
   .icon-btn:active{transform:translateY(1px);}
+  .icon-btn:disabled{
+    opacity:.5; cursor:not-allowed; transform:none;
+    font-variant-numeric:tabular-nums;
+  }
 
   .stat-strip{
     display:grid;
@@ -307,18 +314,19 @@
   .add-coupon-btn{
     width:100%;
     margin-top:10px;
-    border:1.5px solid var(--tile);
+    border:1.5px solid var(--kupon);
     background:transparent;
-    color:var(--tile-dark);
+    color:var(--kupon);
     border-radius:10px;
     padding:9px;
     font-weight:700; font-size:12.5px;
     cursor:pointer;
+    transition:background-color .18s ease, color .18s ease;
   }
   .add-coupon-btn.added{
-    background:var(--tile);
-    border-color:var(--tile);
-    color:#fff9ee;
+    background:var(--kupon);
+    border-color:var(--kupon);
+    color:#fff;
   }
   .add-coupon-btn:disabled{
     opacity:.45; cursor:not-allowed;
@@ -326,126 +334,139 @@
   .in-kupon-dot{
     flex:none;
     width:8px; height:8px; border-radius:999px;
-    background:var(--tile);
+    background:var(--kupon);
   }
 
-  /* ============== KUPON (coupon calculator) ============== */
-  .kupon-bar{
-    position:fixed; left:0; right:0; bottom:0; z-index:60;
-    display:none;
-    align-items:center; justify-content:space-between;
-    padding:13px 18px;
-    background:linear-gradient(90deg, var(--tile-dark), var(--tile));
-    color:#fff9ee;
-    cursor:pointer;
-    box-shadow:0 -4px 16px var(--shadow);
+  /* ============== KUPON (kazanç hesaplayıcı) ============== */
+  .kupon-fab{
+    position:fixed; right:16px; bottom:16px; z-index:60;
+    width:52px; height:52px; border-radius:50%;
+    display:none; align-items:center; justify-content:center;
+    background:var(--kupon);
+    color:#fff;
+    border:none; cursor:pointer;
+    box-shadow:0 6px 18px rgba(0,0,0,.3);
+    transition:transform .18s ease;
   }
-  .kupon-bar.visible{display:flex;}
-  .kupon-bar .left{font-size:13.5px; font-weight:700;}
-  .kupon-bar .left .n{font-size:16px; font-weight:800;}
-  .kupon-bar .right{font-size:13px; font-weight:700; text-align:right;}
-  .kupon-bar .right .n{font-size:17px; font-weight:800; font-variant-numeric:tabular-nums;}
+  .kupon-fab.visible{display:flex;}
+  .kupon-fab:active{transform:scale(.94);}
+  .kupon-fab .fab-n{font-size:18px; font-weight:800; line-height:1;}
+  .kupon-fab .fab-l{font-size:7.5px; font-weight:700; text-transform:uppercase; opacity:.85;}
 
-  .kupon-backdrop{
-    position:fixed; inset:0; z-index:70;
-    background:rgba(10,8,4,.55);
-    display:none;
-    align-items:flex-end;
-    justify-content:center;
+  .kupon-panel-wrap{
+    position:fixed; right:16px; bottom:78px; left:16px; z-index:59;
+    max-width:360px; margin-left:auto;
+    display:grid;
+    grid-template-rows:0fr;
+    transition:grid-template-rows .26s ease;
+    pointer-events:none;
   }
-  .kupon-backdrop.open{display:flex;}
-  .kupon-sheet{
-    width:100%; max-width:520px;
-    max-height:88vh;
-    background:var(--parchment);
-    border-radius:18px 18px 0 0;
+  .kupon-panel-wrap.open{grid-template-rows:1fr; pointer-events:auto;}
+  .kupon-panel-inner{
+    min-height:0; overflow:hidden;
+    opacity:0; transform:scale(.92) translateY(8px);
+    transform-origin:bottom right;
+    transition:opacity .2s ease, transform .22s ease;
+  }
+  .kupon-panel-wrap.open .kupon-panel-inner{opacity:1; transform:scale(1) translateY(0);}
+  .kupon-panel{
+    background:var(--card-bg);
+    border:1px solid var(--border);
+    border-radius:16px;
+    box-shadow:0 10px 32px rgba(0,0,0,.28);
     display:flex; flex-direction:column;
-    transform:translateY(100%);
-    transition:transform .28s ease;
-    box-shadow:0 -8px 30px rgba(0,0,0,.35);
+    max-height:70vh;
   }
-  .kupon-backdrop.open .kupon-sheet{transform:translateY(0);}
   .kupon-head{
     display:flex; align-items:center; justify-content:space-between;
-    padding:14px 16px 10px;
-    border-bottom:1px solid var(--border);
+    padding:12px 14px 8px;
     flex:none;
   }
-  .kupon-head h2{margin:0; font-size:17px;}
+  .kupon-head h2{margin:0; font-size:14.5px; color:var(--kupon);}
   .kupon-close{
-    border:none; background:var(--parchment-2); color:var(--ink);
-    width:30px; height:30px; border-radius:999px;
-    font-size:16px; line-height:1; cursor:pointer;
+    border:none; background:var(--parchment-2); color:var(--ink-soft);
+    width:24px; height:24px; border-radius:999px;
+    font-size:12px; line-height:1; cursor:pointer;
   }
   .kupon-list{
     overflow-y:auto; flex:1 1 auto;
-    padding:6px 16px;
+    padding:0 14px;
+    max-height:34vh;
   }
   .kupon-item{
     display:flex; align-items:center; justify-content:space-between;
     gap:8px;
-    padding:11px 0;
+    padding:8px 0;
     border-bottom:1px solid var(--border);
+    animation:kuponItemIn .22s ease;
+  }
+  .kupon-item.removing{
+    animation:none;
+    opacity:0; transform:translateX(10px);
+    max-height:0; padding-top:0; padding-bottom:0; margin:0; border-bottom-width:0;
+    transition:opacity .18s ease, transform .18s ease, max-height .2s ease .05s,
+               padding .2s ease .05s, margin .2s ease .05s;
   }
   .kupon-item:last-child{border-bottom:none;}
   .kupon-item-info{min-width:0;}
-  .kupon-item-teams{font-weight:700; font-size:13.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-  .kupon-item-market{font-size:11px; color:var(--ink-soft); margin-top:1px;}
-  .kupon-item-right{display:flex; align-items:center; gap:10px; flex:none;}
-  .kupon-item-odd{font-weight:800; font-size:14px; font-variant-numeric:tabular-nums; color:var(--tile-dark);}
+  .kupon-item-teams{font-weight:700; font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .kupon-item-market{font-size:10px; color:var(--ink-soft); margin-top:1px;}
+  .kupon-item-right{display:flex; align-items:center; gap:8px; flex:none;}
+  .kupon-item-odd{font-weight:800; font-size:13px; font-variant-numeric:tabular-nums; color:var(--kupon);}
   .kupon-item-remove{
-    border:none; background:var(--parchment-2); color:var(--ink-soft);
-    width:24px; height:24px; border-radius:999px; font-size:13px; cursor:pointer;
+    border:none; background:none; color:var(--ink-faint);
+    width:20px; height:20px; border-radius:999px; font-size:12px; cursor:pointer;
   }
   .kupon-empty{
-    text-align:center; font-size:13px; color:var(--ink-faint);
-    padding:30px 10px;
+    text-align:center; font-size:12.5px; color:var(--ink-faint);
+    padding:22px 10px;
   }
   .kupon-calc{
     flex:none;
-    padding:12px 16px calc(16px + env(safe-area-inset-bottom));
-    border-top:1px solid var(--border);
-    background:var(--parchment-2);
+    padding:10px 14px calc(12px + env(safe-area-inset-bottom));
   }
   .kupon-calc-row{
-    display:flex; align-items:center; justify-content:space-between;
-    font-size:12.5px; font-weight:700; color:var(--ink-soft);
-    margin-bottom:8px;
+    display:flex; align-items:baseline; justify-content:space-between;
+    font-size:11.5px; color:var(--ink-soft);
+    padding:3px 0;
   }
-  .kupon-calc-row .v{color:var(--ink); font-variant-numeric:tabular-nums;}
+  .kupon-calc-row .v{color:var(--ink); font-weight:700; font-variant-numeric:tabular-nums;}
   .kupon-stake-row{
-    display:flex; align-items:center; gap:8px;
-    margin-bottom:10px;
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    padding:7px 0 3px;
   }
-  .kupon-stake-row label{font-size:12px; font-weight:700; color:var(--ink-soft); flex:none;}
+  .kupon-stake-row label{font-size:11.5px; color:var(--ink-soft); flex:none;}
   .kupon-stake-row input{
-    flex:1; min-width:0;
-    border:1px solid var(--border);
-    background:var(--card-bg); color:var(--ink);
-    border-radius:9px; padding:9px 10px;
+    width:100px;
+    border:none; border-bottom:1.5px solid var(--border);
+    background:none; color:var(--ink);
+    padding:2px 2px; text-align:right;
     font-size:14px; font-weight:700;
     font-variant-numeric:tabular-nums;
   }
+  .kupon-stake-row input:focus{outline:none; border-bottom-color:var(--kupon);}
   .kupon-payout{
-    display:flex; align-items:center; justify-content:space-between;
-    background:var(--card-bg);
-    border:1.5px solid var(--tile);
-    border-radius:11px;
-    padding:11px 13px;
-    margin-bottom:10px;
+    display:flex; align-items:baseline; justify-content:space-between;
+    padding:8px 0 2px;
   }
-  .kupon-payout .l{font-size:12px; font-weight:700; color:var(--ink-soft);}
-  .kupon-payout .v{font-size:21px; font-weight:800; color:var(--tile-dark); font-variant-numeric:tabular-nums;}
+  .kupon-payout .l{font-size:11.5px; color:var(--ink-soft);}
+  .kupon-payout .v{font-size:19px; font-weight:800; color:var(--kupon); font-variant-numeric:tabular-nums;}
   .kupon-clear-btn{
-    width:100%;
-    border:1px solid var(--border);
-    background:transparent; color:var(--ink-soft);
-    border-radius:9px; padding:8px;
-    font-size:12px; font-weight:700; cursor:pointer;
+    border:none;
+    background:none; color:var(--ink-faint);
+    padding:6px 0 0;
+    font-size:11px; font-weight:700; cursor:pointer;
+    text-decoration:underline;
   }
   .kupon-note{
-    font-size:10.5px; color:var(--ink-faint); text-align:center;
-    margin:8px 0 0;
+    font-size:9.5px; color:var(--ink-faint);
+    margin:6px 0 0;
+    line-height:1.35;
+  }
+
+  @keyframes kuponItemIn{
+    from{opacity:0; transform:translateX(-8px);}
+    to{opacity:1; transform:translateX(0);}
   }
 
   footer{
@@ -510,34 +531,35 @@
   Oranlar Nesine.com bültenindendir, yalnızca bilgilendirme amaçlıdır. Yatırım/bahis tavsiyesi değildir.
 </footer>
 
-<div class="kupon-bar" id="kuponBar">
-  <div class="left"><span class="n" id="kuponBarCount">0</span> Maç</div>
-  <div class="right">Toplam Oran<br><span class="n" id="kuponBarOran">0,00</span></div>
-</div>
-
-<div class="kupon-backdrop" id="kuponBackdrop">
-  <div class="kupon-sheet">
-    <div class="kupon-head">
-      <h2>Kuponum</h2>
-      <button class="kupon-close" id="kuponCloseBtn">✕</button>
-    </div>
-    <div class="kupon-list" id="kuponList"></div>
-    <div class="kupon-calc">
-      <div class="kupon-calc-row"><span>Maç Sayısı</span><span class="v" id="calcCount">0</span></div>
-      <div class="kupon-calc-row"><span>Toplam Oran</span><span class="v" id="calcOran">0,00</span></div>
-      <div class="kupon-stake-row">
-        <label for="stakeInput">Tutar (TL)</label>
-        <input type="number" id="stakeInput" min="0" step="1" placeholder="0" inputmode="decimal">
+<div class="kupon-panel-wrap" id="kuponPanelWrap">
+  <div class="kupon-panel-inner">
+    <div class="kupon-panel">
+      <div class="kupon-head">
+        <h2>Kuponum</h2>
+        <button class="kupon-close" id="kuponCloseBtn">✕</button>
       </div>
-      <div class="kupon-payout">
-        <span class="l">Olası Kazanç</span>
-        <span class="v" id="calcKazanc">0,00 TL</span>
+      <div class="kupon-list" id="kuponList"></div>
+      <div class="kupon-calc">
+        <div class="kupon-calc-row"><span>Maç Sayısı</span><span class="v" id="calcCount">0</span></div>
+        <div class="kupon-calc-row"><span>Toplam Oran</span><span class="v" id="calcOran">0,00</span></div>
+        <div class="kupon-stake-row">
+          <label for="stakeInput">Tutar (TL)</label>
+          <input type="number" id="stakeInput" min="0" step="1" placeholder="0" inputmode="decimal">
+        </div>
+        <div class="kupon-payout">
+          <span class="l">Olası Kazanç</span>
+          <span class="v" id="calcKazanc">0,00 TL</span>
+        </div>
+        <button class="kupon-clear-btn" id="kuponClearBtn">Kuponu Temizle</button>
+        <p class="kupon-note">Oranlar iddaa.com tahmini (Nesine × 1,037). Gerçek bahis değildir, sadece kazanç hesaplayıcıdır.</p>
       </div>
-      <button class="kupon-clear-btn" id="kuponClearBtn">Kuponu Temizle</button>
-      <p class="kupon-note">Oranlar iddaa.com tahmini (Nesine × 1,037). Gerçek bahis değildir, sadece kazanç hesaplayıcıdır.</p>
     </div>
   </div>
 </div>
+
+<button type="button" class="kupon-fab" id="kuponFab">
+  <span><span class="fab-n" id="kuponFabCount">0</span><br><span class="fab-l">Maç</span></span>
+</button>
 
 <script>
 (function(){
@@ -632,17 +654,15 @@
     renderList();
   }
 
-  function renderKuponBar(){
-    const bar = $("kuponBar");
+  function renderKuponFab(){
+    const fab = $("kuponFab");
     if (kupon.length === 0){
-      bar.classList.remove("visible");
-      document.body.classList.remove("has-kupon");
+      fab.classList.remove("visible");
+      $("kuponPanelWrap").classList.remove("open");
       return;
     }
-    bar.classList.add("visible");
-    document.body.classList.add("has-kupon");
-    $("kuponBarCount").textContent = kupon.length;
-    $("kuponBarOran").textContent = fmtOdd(kuponOranToplam());
+    fab.classList.add("visible");
+    $("kuponFabCount").textContent = kupon.length;
   }
 
   function renderKuponList(){
@@ -652,7 +672,7 @@
       return;
     }
     el.innerHTML = kupon.map(k =>
-      '<div class="kupon-item">' +
+      '<div class="kupon-item" data-id="' + escapeHtml(k.id) + '">' +
         '<div class="kupon-item-info">' +
           '<div class="kupon-item-teams">' + escapeHtml(k.evSahibi) + ' — ' + escapeHtml(k.deplasman) + '</div>' +
           '<div class="kupon-item-market">Karşılıklı Gol · Var</div>' +
@@ -675,19 +695,29 @@
   }
 
   function renderKupon(){
-    renderKuponBar();
+    renderKuponFab();
     renderKuponList();
     renderKuponCalc();
   }
 
-  function openKuponSheet(){ $("kuponBackdrop").classList.add("open"); }
-  function closeKuponSheet(){ $("kuponBackdrop").classList.remove("open"); }
+  function toggleKuponPanel(){ $("kuponPanelWrap").classList.toggle("open"); }
+  function closeKuponPanel(){ $("kuponPanelWrap").classList.remove("open"); }
 
-  $("kuponBar").addEventListener("click", openKuponSheet);
-  $("kuponCloseBtn").addEventListener("click", closeKuponSheet);
-  $("kuponBackdrop").addEventListener("click", (ev) => {
-    if (ev.target.id === "kuponBackdrop") closeKuponSheet();
-  });
+  function removeFromKupon(id){
+    const node = $("kuponList").querySelector('.kupon-item[data-id="' + CSS.escape(id) + '"]');
+    const finish = () => {
+      kupon = kupon.filter(k => k.id !== id);
+      saveKupon();
+      renderKupon();
+      renderList();
+    };
+    if (!node){ finish(); return; }
+    node.classList.add("removing");
+    setTimeout(finish, 260);
+  }
+
+  $("kuponFab").addEventListener("click", toggleKuponPanel);
+  $("kuponCloseBtn").addEventListener("click", closeKuponPanel);
   $("kuponClearBtn").addEventListener("click", () => {
     kupon = [];
     saveKupon();
@@ -697,10 +727,7 @@
   $("kuponList").addEventListener("click", (ev) => {
     const btn = ev.target.closest(".kupon-item-remove");
     if (!btn) return;
-    kupon = kupon.filter(k => k.id !== btn.dataset.id);
-    saveKupon();
-    renderKupon();
-    renderList();
+    removeFromKupon(btn.dataset.id);
   });
   $("stakeInput").addEventListener("input", renderKuponCalc);
 
@@ -872,7 +899,49 @@
       });
   }
 
-  $("refreshBtn").addEventListener("click", load);
+  /* ============== MANUEL YENİLE (1 dk. sınırlı) ============== */
+  const REFRESH_COOLDOWN_S = 60;
+  const REFRESH_KEY = "kgtahmin-last-refresh";
+  let refreshTimer = null;
+
+  function runRefreshCountdown(remaining){
+    const btn = $("refreshBtn");
+    clearInterval(refreshTimer);
+    btn.disabled = true;
+    const tick = () => {
+      if (remaining <= 0){
+        btn.disabled = false;
+        btn.textContent = "Yenile";
+        clearInterval(refreshTimer);
+        return;
+      }
+      btn.textContent = "Yenile (" + remaining + "sn)";
+      remaining--;
+    };
+    tick();
+    refreshTimer = setInterval(tick, 1000);
+  }
+
+  function manualRefresh(){
+    const last = parseInt(localStorage.getItem(REFRESH_KEY) || "0", 10);
+    const elapsed = (Date.now() - last) / 1000;
+    if (elapsed < REFRESH_COOLDOWN_S) return; // buton zaten pasif olmalı, ekstra güvence
+    localStorage.setItem(REFRESH_KEY, String(Date.now()));
+    load();
+    runRefreshCountdown(REFRESH_COOLDOWN_S);
+  }
+
+  function initRefreshCooldown(){
+    const last = parseInt(localStorage.getItem(REFRESH_KEY) || "0", 10);
+    const elapsed = (Date.now() - last) / 1000;
+    if (elapsed < REFRESH_COOLDOWN_S){
+      runRefreshCountdown(Math.ceil(REFRESH_COOLDOWN_S - elapsed));
+    }
+  }
+
+  $("refreshBtn").addEventListener("click", manualRefresh);
+  initRefreshCooldown();
+
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") load();
   });
