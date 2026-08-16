@@ -120,6 +120,7 @@ def maclari_isle(veri, gecmis):
         tutma = None
         toplam = None
         tutma_orani = None
+        guven = None  # "kesin" | "olasi" | None
         if iyms_kg is not None and alt_ust_6 is not None:
             cift_anahtari = f"{math.floor(iyms_kg)},{math.floor(alt_ust_6)}"
             istatistik = gecmis.get(cift_anahtari)
@@ -128,6 +129,9 @@ def maclari_isle(veri, gecmis):
                 toplam = istatistik["toplam"]
                 tutma_orani = tutma / toplam
                 onerilen = True
+                # "Kesin": en az 3 geçmiş örnek ve hepsi tutmuş (%100).
+                # Daha az örnekli veya %100'ün altındaki her şey "olası".
+                guven = "kesin" if (toplam >= 3 and tutma_orani == 1.0) else "olasi"
 
         maclar.append({
             "id": str(e.get("C", "")),
@@ -142,6 +146,7 @@ def maclari_isle(veri, gecmis):
             "tutma": tutma,
             "toplam": toplam,
             "tutmaOrani": tutma_orani,
+            "guven": guven,
         })
 
     maclar.sort(key=lambda m: m["macZamani"])

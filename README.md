@@ -31,11 +31,17 @@ tabloda aranır:
 - Çift tabloda **varsa** → maç listelenir, o çiftin geçmiş tutma oranıyla
   (`tutma/toplam`) etiketlenir.
 
-Liste, tutma oranına göre büyükten küçüğe sıralanır (eşitlikte örnek sayısı
-fazla olan üste çıkar) — yani %100 tutan ve çok denenmiş çiftler en üstte,
-düşük oranlılar en altta görünür. Bu tamamen kullanıcının kendi Excel
-analizine dayanan sezgisel bir sıralamadır, istatistiksel bir garanti değildir
-ve özellikle 1-2 örnekli çiftlerin oranı güvenilir değildir.
+Eşleşen maçlar iki güven seviyesine ayrılır (`scraper.py` → `guven` alanı):
+
+- **Kesin**: çift en az 3 kez denenmiş VE hepsinde (%100) tutmuş.
+- **Olası**: çift geçmişte var ama ya 3'ten az denenmiş ya da %100'ün altında tutmuş.
+
+Site bu ikisini ayrı sekmelerde gösterir (artı "Tüm Bülten" — geçmiş verisi
+olsun olmasın bültendeki her maç), her sekmede lig filtresi ve sıralama
+seçeneği (tutma oranı, oran değeri, saat) vardır. Bu tamamen kullanıcının
+kendi Excel analizine dayanan sezgisel bir sınıflandırmadır, istatistiksel
+bir garanti değildir — özellikle "Olası" sekmesindeki düşük örnekli çiftlerin
+oranı güvenilir olmayabilir.
 
 `data/historical_stats.json` statik bir anlık görüntüdür; Excel tablosu
 güncellendikçe yeniden üretilip commit'lenmesi gerekir (otomatik değildir,

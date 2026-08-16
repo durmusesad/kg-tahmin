@@ -5,14 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#ffffff">
 <title>KG Tahmin</title>
-<meta name="description" content="Nesine bülteninden canlı İY/MS KG ve 6+ Gol oranlarına bakarak Karşılıklı Gol oynanabilir maçları listeler.">
+<meta name="description" content="Nesine bülteninden canlı İY/MS KG ve 6+ Gol oranlarını geçmiş maç istatistikleriyle eşleştirip Karşılıklı Gol fırsatlarını sıralar.">
 </head>
 <body>
 <style>
   :root{
     --ink:#211609;
+    --ink-soft:color-mix(in srgb, var(--ink) 62%, transparent);
+    --ink-faint:color-mix(in srgb, var(--ink) 42%, transparent);
     --parchment:#ffffff;
     --parchment-2:#f4f0e6;
+    --parchment-3:#ece5d4;
     --seal:#e63950;
     --seal-dark:#c22740;
     --tile:#12b886;
@@ -21,8 +24,28 @@
     --brass-dark:#d98c0a;
     --card-bg:#fffdf8;
     --shadow:rgba(20,16,10,.10);
+    --border:color-mix(in srgb, var(--brass) 32%, transparent);
     --focus:#2f7de1;
     color-scheme: light;
+  }
+  :root[data-theme="dark"]{
+    --ink:#e9e2d3;
+    --ink-soft:color-mix(in srgb, var(--ink) 66%, transparent);
+    --ink-faint:color-mix(in srgb, var(--ink) 44%, transparent);
+    --parchment:#151109;
+    --parchment-2:#1e1810;
+    --parchment-3:#272016;
+    --seal:#c1596a;
+    --seal-dark:#9c4353;
+    --tile:#3fa285;
+    --tile-dark:#2c7d67;
+    --brass:#bd9350;
+    --brass-dark:#96733c;
+    --card-bg:#1b160e;
+    --shadow:rgba(0,0,0,.45);
+    --border:color-mix(in srgb, var(--brass) 30%, transparent);
+    --focus:#6fa3e0;
+    color-scheme: dark;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
@@ -33,12 +56,14 @@
     -webkit-tap-highlight-color:transparent;
     overscroll-behavior-y:contain;
     padding-bottom:40px;
+    transition:background-color .2s ease, color .2s ease;
   }
   h1,h2,.display{
     font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif;
     text-wrap:balance;
     font-weight:700;
   }
+  button, select{ font-family:inherit; }
   .weave{
     position:fixed; inset:0; z-index:-1; pointer-events:none;
     background:
@@ -48,91 +73,148 @@
   }
 
   header.top{
-    padding:clamp(16px,4vw,28px) 16px 14px;
-    text-align:center;
-    max-width:760px;
+    padding:clamp(14px,4vw,26px) 16px 12px;
+    max-width:880px;
     margin:0 auto;
   }
-  header.top h1{
-    font-size:clamp(22px,5.4vw,30px);
+  .top-row{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:10px;
+  }
+  .title-block h1{
+    font-size:clamp(20px,5vw,27px);
     margin:0 0 4px;
   }
-  header.top .sub{
-    font-size:13.5px;
-    color:color-mix(in srgb, var(--ink) 65%, transparent);
+  .title-block .sub{
+    font-size:12.5px; line-height:1.4; max-width:520px;
+    color:var(--ink-soft);
     margin:0;
   }
-  .status-bar{
-    display:flex; align-items:center; justify-content:center; gap:8px;
-    margin-top:12px; flex-wrap:wrap;
+  .top-actions{
+    display:flex; gap:8px; flex:none;
   }
-  .status-pill{
-    font-size:12px; font-weight:700;
-    padding:5px 12px; border-radius:999px;
-    background:var(--parchment-2);
-    color:color-mix(in srgb, var(--ink) 75%, transparent);
-    border:1px solid color-mix(in srgb, var(--brass) 35%, transparent);
-    font-variant-numeric:tabular-nums;
-  }
-  .status-pill.live{
-    background:color-mix(in srgb, var(--tile) 16%, var(--parchment-2));
-    color:var(--tile-dark);
-    border-color:color-mix(in srgb, var(--tile) 45%, transparent);
-  }
-  .refresh-btn{
-    font:inherit; font-weight:700; font-size:12px;
-    border:1px solid color-mix(in srgb, var(--brass) 45%, transparent);
+  .icon-btn{
+    font-size:11.5px; font-weight:700;
+    border:1px solid var(--border);
     background:var(--card-bg); color:var(--ink);
-    border-radius:999px; padding:5px 14px;
+    border-radius:10px; padding:7px 11px;
+    cursor:pointer; white-space:nowrap;
+  }
+  .icon-btn:active{transform:translateY(1px);}
+
+  .stat-strip{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:8px;
+    margin-top:16px;
+  }
+  .stat-tile{
+    background:var(--card-bg);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:9px 10px;
+    text-align:center;
+  }
+  .stat-tile .n{
+    font-size:19px; font-weight:800; font-variant-numeric:tabular-nums;
+    line-height:1.1;
+  }
+  .stat-tile .l{
+    font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em;
+    color:var(--ink-faint);
+    margin-top:2px;
+  }
+  .stat-tile.kesin .n{color:var(--tile-dark);}
+  .stat-tile.olasi .n{color:var(--brass-dark);}
+  @media (max-width:420px){
+    .stat-strip{grid-template-columns:repeat(2,1fr);}
+  }
+
+  main{max-width:880px; margin:0 auto; padding:14px 12px 0;}
+
+  .filter-bar{
+    background:var(--card-bg);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:10px;
+    margin-bottom:16px;
+  }
+  .tabs{
+    display:flex; gap:6px;
+    background:var(--parchment-2);
+    border-radius:10px;
+    padding:4px;
+    margin-bottom:9px;
+  }
+  .tab-btn{
+    flex:1;
+    border:none; background:transparent;
+    border-radius:8px;
+    padding:8px 4px;
+    font-weight:700; font-size:12px;
+    color:var(--ink-soft);
     cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; gap:1px;
   }
-  .refresh-btn:active{transform:translateY(1px);}
+  .tab-btn .cnt{font-size:10.5px; font-weight:700; opacity:.8;}
+  .tab-btn.active{
+    background:var(--card-bg);
+    color:var(--ink);
+    box-shadow:0 1px 4px var(--shadow);
+  }
+  .tab-btn[data-tab="kesin"].active{color:var(--tile-dark);}
+  .tab-btn[data-tab="olasi"].active{color:var(--brass-dark);}
 
-  main{max-width:760px; margin:0 auto; padding:4px 12px 0;}
+  .filter-controls{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+  }
+  .filter-controls label{
+    display:block; font-size:9.5px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.03em; color:var(--ink-faint); margin-bottom:3px;
+  }
+  .filter-controls select{
+    width:100%;
+    border:1px solid var(--border);
+    background:var(--parchment-2); color:var(--ink);
+    border-radius:9px;
+    padding:8px 8px;
+    font-size:12.5px; font-weight:600;
+  }
 
-  .section-head{
-    display:flex; align-items:baseline; gap:8px;
-    margin:26px 4px 12px;
-  }
-  .section-head h2{font-size:16.5px; margin:0;}
-  .section-head .count{
-    font-size:12px; font-weight:700;
-    color:#fff9ee; background:var(--brass);
-    padding:2px 9px; border-radius:999px;
-    font-variant-numeric:tabular-nums;
-  }
-  .section-head.rec .count{background:var(--seal);}
   .section-note{
-    font-size:12px; margin:-6px 4px 12px;
-    color:color-mix(in srgb, var(--ink) 55%, transparent);
+    font-size:12px; margin:2px 4px 12px;
+    color:var(--ink-soft);
   }
 
   .empty-note{
     text-align:center; font-size:13.5px; font-style:italic;
-    color:color-mix(in srgb, var(--ink) 50%, transparent);
-    padding:18px 10px;
+    color:var(--ink-faint);
+    padding:26px 10px;
+    background:var(--card-bg);
+    border:1px dashed var(--border);
+    border-radius:12px;
   }
 
   .match-list{display:flex; flex-direction:column; gap:10px;}
 
   .match-card{
     background:var(--card-bg);
-    border:1.5px solid color-mix(in srgb, var(--brass) 32%, transparent);
+    border:1.5px solid var(--border);
+    border-left:4px solid var(--border);
     border-radius:14px;
     padding:12px 14px;
     box-shadow:0 2px 8px var(--shadow);
   }
-  .match-card.rec{
-    border-color:color-mix(in srgb, var(--tile) 55%, transparent);
-    background:color-mix(in srgb, var(--tile) 6%, var(--card-bg));
-  }
+  .match-card.tier-kesin{border-left-color:var(--tile);}
+  .match-card.tier-olasi{border-left-color:var(--brass);}
   .match-top{
     display:flex; align-items:center; justify-content:space-between;
     gap:8px; margin-bottom:6px;
   }
   .league{
     font-size:11px; font-weight:700; letter-spacing:.02em;
-    color:color-mix(in srgb, var(--ink) 60%, transparent);
+    color:var(--ink-soft);
     text-transform:uppercase;
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   }
@@ -160,7 +242,7 @@
   }
   .odd-chip .lbl{
     font-size:10px; font-weight:700;
-    color:color-mix(in srgb, var(--ink) 60%, transparent);
+    color:var(--ink-soft);
     text-transform:uppercase;
     letter-spacing:.02em;
     margin-bottom:2px;
@@ -169,67 +251,104 @@
     font-size:15.5px; font-weight:700;
     font-variant-numeric:tabular-nums;
   }
-  .odd-chip .val.dash{color:color-mix(in srgb, var(--ink) 35%, transparent); font-weight:400;}
-  .match-card.rec .odd-chip{background:color-mix(in srgb, var(--tile) 14%, var(--parchment-2));}
+  .odd-chip .val.dash{color:var(--ink-faint); font-weight:400;}
 
-  .rec-badge{
+  .stat-panel{
+    margin-top:10px;
+    padding:9px 11px 10px;
+    border-radius:11px;
+    background:var(--parchment-3);
+  }
+  .stat-panel-row{
     display:flex; align-items:center; justify-content:space-between;
     gap:8px;
-    margin-top:10px;
-    padding:8px 12px;
-    border-radius:10px;
+  }
+  .stat-panel-left{display:flex; align-items:center; gap:7px; min-width:0;}
+  .tier-chip{
+    font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.02em;
+    padding:3px 8px; border-radius:999px; flex:none;
+    color:#fff9ee;
+  }
+  .tier-chip.kesin{background:var(--tile-dark);}
+  .tier-chip.olasi{background:var(--brass-dark);}
+  .stat-fraction{
+    font-size:12px; font-weight:700; color:var(--ink-soft);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .stat-pct{
+    font-size:19px; font-weight:800; font-variant-numeric:tabular-nums;
+    flex:none;
+  }
+  .stat-panel.tier-kesin .stat-pct{color:var(--tile-dark);}
+  .stat-panel.tier-olasi .stat-pct{color:var(--brass-dark);}
+  .progress-track{
+    margin-top:7px;
+    height:6px; border-radius:999px;
+    background:var(--parchment-2);
+    overflow:hidden;
+  }
+  .progress-fill{
+    height:100%; border-radius:999px;
     background:linear-gradient(90deg, var(--tile), var(--tile-dark));
-    color:#fff;
   }
-  .rec-badge.mid{background:linear-gradient(90deg, var(--brass), var(--brass-dark));}
-  .rec-badge.low{background:linear-gradient(90deg, var(--seal), var(--seal-dark));}
-  .rec-badge .txt{font-size:12.5px; font-weight:700;}
-  .rec-badge .odd{
-    font-size:15px; font-weight:700;
-    font-variant-numeric:tabular-nums;
-    background:rgba(255,255,255,.22);
-    padding:2px 10px; border-radius:999px;
-  }
+  .stat-panel.tier-olasi .progress-fill{background:linear-gradient(90deg, var(--brass), var(--brass-dark));}
 
   footer{
     text-align:center; margin-top:36px; padding:0 20px;
-    font-size:11.5px; color:color-mix(in srgb, var(--ink) 45%, transparent);
+    font-size:11.5px; color:var(--ink-faint);
   }
   footer a{color:inherit;}
 
   @media (max-width:380px){
     .odd-chip .val{font-size:14px;}
+    .filter-controls{grid-template-columns:1fr;}
   }
 </style>
 
 <div class="weave"></div>
 
 <header class="top">
-  <h1>⚽ KG Tahmin</h1>
-  <p class="sub">Nesine bülteninden İY/MS KG ve 6+ Gol oranlarının küsüratsız çiftini, geçmiş maç istatistikleriyle eşleştirip tutma oranına göre sıralar.</p>
-  <div class="status-bar">
-    <span class="status-pill live" id="updatedPill">Yükleniyor…</span>
-    <span class="status-pill" id="countPill">—</span>
-    <button class="refresh-btn" id="refreshBtn">↻ Yenile</button>
+  <div class="top-row">
+    <div class="title-block">
+      <h1>KG Tahmin</h1>
+      <p class="sub">Nesine bülteninden İY/MS KG ve 6+ Gol oranlarının küsüratsız çiftini geçmiş maç verisiyle eşleştirip tutma oranına göre sıralar.</p>
+    </div>
+    <div class="top-actions">
+      <button class="icon-btn" id="themeBtn">Koyu Tema</button>
+      <button class="icon-btn" id="refreshBtn">Yenile</button>
+    </div>
+  </div>
+
+  <div class="stat-strip">
+    <div class="stat-tile"><div class="n" id="statTotal">–</div><div class="l">Bültendeki Maç</div></div>
+    <div class="stat-tile kesin"><div class="n" id="statKesin">–</div><div class="l">Kesin Eşleşme</div></div>
+    <div class="stat-tile olasi"><div class="n" id="statOlasi">–</div><div class="l">Olası Eşleşme</div></div>
+    <div class="stat-tile"><div class="n" id="statUpdated">–</div><div class="l">Son Güncelleme</div></div>
   </div>
 </header>
 
 <main>
-  <div class="section-head rec">
-    <h2>🔥 Geçmiş Verili Maçlar</h2>
-    <span class="count" id="recCount">0</span>
+  <div class="filter-bar">
+    <div class="tabs">
+      <button class="tab-btn active" id="tabKesin" data-tab="kesin">Kesin<span class="cnt" id="cntKesin">0</span></button>
+      <button class="tab-btn" id="tabOlasi" data-tab="olasi">Olası<span class="cnt" id="cntOlasi">0</span></button>
+      <button class="tab-btn" id="tabTum" data-tab="tum">Tüm Bülten<span class="cnt" id="cntTum">0</span></button>
+    </div>
+    <div class="filter-controls">
+      <div>
+        <label for="ligSelect">Lig</label>
+        <select id="ligSelect"><option value="">Tüm Ligler</option></select>
+      </div>
+      <div>
+        <label for="sortSelect">Sırala</label>
+        <select id="sortSelect"></select>
+      </div>
+    </div>
   </div>
-  <p class="section-note">Oran çifti (İY/MS KG, 6+ Gol) geçmişte bu tam sayılarla en az bir kez görülmüş maçlar. Tutma oranı en yüksek (%100, çok denenmiş) en üstte, düşük olanlar en altta.</p>
-  <div class="match-list" id="recList"></div>
-  <div class="empty-note" id="recEmpty" style="display:none;">Şu anda kriterlere uyan maç yok.</div>
 
-  <div class="section-head">
-    <h2>Tüm Maçlar</h2>
-    <span class="count" id="allCount">0</span>
-  </div>
-  <p class="section-note">Saate göre sıralı. Market o maçta yoksa "–" gösterilir.</p>
-  <div class="match-list" id="allList"></div>
-  <div class="empty-note" id="allEmpty" style="display:none;">Bülten yüklenemedi.</div>
+  <p class="section-note" id="tabNote"></p>
+  <div class="match-list" id="list"></div>
+  <div class="empty-note" id="emptyNote" style="display:none;">Kriterlere uyan maç yok.</div>
 </main>
 
 <footer>
@@ -242,10 +361,67 @@
 
   function $(id){ return document.getElementById(id); }
 
+  /* ============== THEME ============== */
+  const THEME_KEY = "kgtahmin-theme";
+  function applyTheme(t){
+    if (t === "dark"){
+      document.documentElement.setAttribute("data-theme", "dark");
+      $("themeBtn").textContent = "Açık Tema";
+    } else {
+      document.documentElement.removeAttribute("data-theme");
+      $("themeBtn").textContent = "Koyu Tema";
+    }
+  }
+  function initTheme(){
+    const saved = localStorage.getItem(THEME_KEY);
+    if (saved){ applyTheme(saved); return; }
+    const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+    applyTheme(prefersDark ? "dark" : "light");
+  }
+  $("themeBtn").addEventListener("click", () => {
+    const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+    const next = isDark ? "light" : "dark";
+    applyTheme(next);
+    localStorage.setItem(THEME_KEY, next);
+  });
+  initTheme();
+
+  /* ============== STATE ============== */
+  let allMatches = [];
+  let currentTab = "kesin";
+  let currentLeague = "";
+  let currentSort = "rate_desc";
+
+  const SORTS = {
+    rate_desc:  { label: "Tutma Oranı (Yüksek → Düşük)", cmp: (a,b) => (b.tutmaOrani ?? -1) - (a.tutmaOrani ?? -1) || (b.toplam ?? 0) - (a.toplam ?? 0) },
+    rate_asc:   { label: "Tutma Oranı (Düşük → Yüksek)", cmp: (a,b) => (a.tutmaOrani ?? 2) - (b.tutmaOrani ?? 2) || (b.toplam ?? 0) - (a.toplam ?? 0) },
+    time_asc:   { label: "Maç Saati (Yakın → Uzak)",     cmp: (a,b) => a.macZamani.localeCompare(b.macZamani) },
+    mskg_desc:  { label: "MS KG Oranı (Yüksek → Düşük)", cmp: (a,b) => (b.msKg ?? -1) - (a.msKg ?? -1) },
+    mskg_asc:   { label: "MS KG Oranı (Düşük → Yüksek)", cmp: (a,b) => (a.msKg ?? 999) - (b.msKg ?? 999) },
+    gol6_desc:  { label: "6+ Gol Oranı (Yüksek → Düşük)", cmp: (a,b) => (b.altUst6 ?? -1) - (a.altUst6 ?? -1) },
+    gol6_asc:   { label: "6+ Gol Oranı (Düşük → Yüksek)", cmp: (a,b) => (a.altUst6 ?? 999) - (b.altUst6 ?? 999) },
+    iyms_desc:  { label: "İY/MS KG Oranı (Yüksek → Düşük)", cmp: (a,b) => (b.iymsKg ?? -1) - (a.iymsKg ?? -1) },
+    iyms_asc:   { label: "İY/MS KG Oranı (Düşük → Yüksek)", cmp: (a,b) => (a.iymsKg ?? 999) - (b.iymsKg ?? 999) },
+  };
+  const sortSelectEl = $("sortSelect");
+  Object.keys(SORTS).forEach(key => {
+    const opt = document.createElement("option");
+    opt.value = key;
+    opt.textContent = SORTS[key].label;
+    sortSelectEl.appendChild(opt);
+  });
+  sortSelectEl.value = currentSort;
+
+  const TAB_NOTES = {
+    kesin: "Geçmişte en az 3 kez denenmiş ve hepsinde (%100) karşılıklı gol çıkmış oran çiftleri.",
+    olasi: "Geçmişte görülmüş ama 3 örnekten az, ya da %100'ün altında tutmuş oran çiftleri. Örnek sayısı düşük olanlarda oran güvenilir olmayabilir.",
+    tum:   "Bültendeki tüm maçlar (geçmiş verisi olsun olmasın).",
+  };
+
+  /* ============== HELPERS ============== */
   function fmtOdd(v){
     return (v === null || v === undefined) ? null : v.toFixed(2).replace(".", ",");
   }
-
   function fmtKickoff(iso){
     const d = new Date(iso);
     if (isNaN(d)) return "-";
@@ -258,20 +434,21 @@
     const MM = String(d.getMonth()+1).padStart(2,"0");
     return dd + "." + MM + " " + hh + ":" + mm;
   }
-
+  function fmtPct(rate){ return Math.round(rate * 100) + "%"; }
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c => ({
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+    }[c]));
+  }
   function oddChip(label, value){
     const v = fmtOdd(value);
     return '<div class="odd-chip"><div class="lbl">' + label + '</div>' +
       '<div class="val' + (v===null ? " dash" : "") + '">' + (v===null ? "–" : v) + '</div></div>';
   }
 
-  function fmtPct(rate){
-    return Math.round(rate * 100) + "%";
-  }
-
   function matchCard(m){
-    const rec = m.onerilen;
-    let html = '<div class="match-card' + (rec ? " rec" : "") + '">';
+    const tier = m.guven; // "kesin" | "olasi" | null
+    let html = '<div class="match-card' + (tier ? " tier-" + tier : "") + '">';
     html += '<div class="match-top"><span class="league">' + escapeHtml(m.lig) + '</span>' +
       '<span class="kickoff">' + fmtKickoff(m.macZamani) + '</span></div>';
     html += '<div class="teams">' + escapeHtml(m.evSahibi) + ' — ' + escapeHtml(m.deplasman) + '</div>';
@@ -280,58 +457,99 @@
       oddChip("6+ Gol", m.altUst6) +
       oddChip("İY/MS KG", m.iymsKg) +
       '</div>';
-    if (rec){
-      const tier = m.tutmaOrani >= 0.7 ? "" : (m.tutmaOrani >= 0.4 ? " mid" : " low");
-      html += '<div class="rec-badge' + tier + '"><span class="txt">📊 Geçmişte bu çift (' +
-        Math.floor(m.iymsKg) + ' / ' + Math.floor(m.altUst6) + ') ' + m.toplam + ' maçta ' + m.tutma + ' kez tutmuş</span>' +
-        '<span class="odd">' + fmtPct(m.tutmaOrani) + '</span></div>';
+    if (tier){
+      const pct = Math.round(m.tutmaOrani * 100);
+      html += '<div class="stat-panel tier-' + tier + '">' +
+        '<div class="stat-panel-row">' +
+          '<div class="stat-panel-left">' +
+            '<span class="tier-chip ' + tier + '">' + (tier === "kesin" ? "Kesin" : "Olası") + '</span>' +
+            '<span class="stat-fraction">Çift (' + Math.floor(m.iymsKg) + '/' + Math.floor(m.altUst6) + ') geçmişte ' + m.toplam + ' maçta ' + m.tutma + ' kez tuttu</span>' +
+          '</div>' +
+          '<div class="stat-pct">' + pct + '%</div>' +
+        '</div>' +
+        '<div class="progress-track"><div class="progress-fill" style="width:' + pct + '%"></div></div>' +
+      '</div>';
     }
     html += '</div>';
     return html;
   }
 
-  function escapeHtml(s){
-    return String(s).replace(/[&<>"']/g, c => ({
-      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
-    }[c]));
+  /* ============== FILTER / SORT / RENDER ============== */
+  function tabMatches(tab){
+    if (tab === "kesin") return allMatches.filter(m => m.guven === "kesin");
+    if (tab === "olasi") return allMatches.filter(m => m.guven === "olasi");
+    return allMatches.slice();
   }
 
-  function render(data){
-    const maclar = data.maclar || [];
-    const rec = maclar.filter(m => m.onerilen).sort((a, b) => {
-      if (b.tutmaOrani !== a.tutmaOrani) return b.tutmaOrani - a.tutmaOrani;
-      return b.toplam - a.toplam;
-    });
-    const rest = maclar.filter(m => !m.onerilen);
-
-    $("recCount").textContent = rec.length;
-    $("allCount").textContent = rest.length;
-
-    $("recList").innerHTML = rec.map(matchCard).join("");
-    $("recEmpty").style.display = rec.length ? "none" : "block";
-
-    $("allList").innerHTML = rest.map(matchCard).join("");
-    $("allEmpty").style.display = rest.length ? "none" : "block";
-
-    $("countPill").textContent = maclar.length + " maç";
-
-    if (data.guncellemeZamani){
-      const d = new Date(data.guncellemeZamani);
-      const hh = String(d.getHours()).padStart(2,"0");
-      const mm = String(d.getMinutes()).padStart(2,"0");
-      $("updatedPill").textContent = "Son güncelleme: " + hh + ":" + mm;
+  function rebuildLeagueOptions(){
+    const matches = tabMatches(currentTab);
+    const leagues = [...new Set(matches.map(m => m.lig))].sort((a,b) => a.localeCompare(b, "tr"));
+    const prev = currentLeague;
+    ligSelectEl.innerHTML = '<option value="">Tüm Ligler</option>' +
+      leagues.map(l => '<option value="' + escapeHtml(l) + '">' + escapeHtml(l) + '</option>').join("");
+    if (leagues.includes(prev)){
+      ligSelectEl.value = prev;
+    } else {
+      currentLeague = "";
+      ligSelectEl.value = "";
     }
   }
 
+  function renderList(){
+    let matches = tabMatches(currentTab);
+    if (currentLeague) matches = matches.filter(m => m.lig === currentLeague);
+    matches = matches.slice().sort(SORTS[currentSort].cmp);
+
+    $("list").innerHTML = matches.map(matchCard).join("");
+    $("emptyNote").style.display = matches.length ? "none" : "block";
+    $("tabNote").textContent = TAB_NOTES[currentTab];
+  }
+
+  function updateTabCounts(){
+    $("cntKesin").textContent = allMatches.filter(m => m.guven === "kesin").length;
+    $("cntOlasi").textContent = allMatches.filter(m => m.guven === "olasi").length;
+    $("cntTum").textContent = allMatches.length;
+  }
+
+  const ligSelectEl = $("ligSelect");
+  ligSelectEl.addEventListener("change", () => { currentLeague = ligSelectEl.value; renderList(); });
+  sortSelectEl.addEventListener("change", () => { currentSort = sortSelectEl.value; renderList(); });
+
+  ["kesin","olasi","tum"].forEach(tab => {
+    $("tab" + tab.charAt(0).toUpperCase() + tab.slice(1)).addEventListener("click", () => {
+      currentTab = tab;
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
+      currentSort = (tab === "tum") ? "time_asc" : "rate_desc";
+      sortSelectEl.value = currentSort;
+      rebuildLeagueOptions();
+      renderList();
+    });
+  });
+
+  /* ============== LOAD ============== */
+  function render(data){
+    allMatches = data.maclar || [];
+
+    $("statTotal").textContent = allMatches.length;
+    $("statKesin").textContent = allMatches.filter(m => m.guven === "kesin").length;
+    $("statOlasi").textContent = allMatches.filter(m => m.guven === "olasi").length;
+    if (data.guncellemeZamani){
+      const d = new Date(data.guncellemeZamani);
+      $("statUpdated").textContent = String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0");
+    }
+
+    updateTabCounts();
+    rebuildLeagueOptions();
+    renderList();
+  }
+
   function load(){
-    $("updatedPill").textContent = "Yükleniyor…";
     fetch("data/odds.json", {cache: "no-store"})
       .then(r => { if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
       .then(render)
       .catch(() => {
-        $("updatedPill").textContent = "Yüklenemedi";
-        $("allEmpty").style.display = "block";
-        $("recEmpty").style.display = "block";
+        $("emptyNote").textContent = "Bülten yüklenemedi.";
+        $("emptyNote").style.display = "block";
       });
   }
 
