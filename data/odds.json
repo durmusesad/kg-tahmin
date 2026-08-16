@@ -1,6 +1,6 @@
 {
-  "guncellemeZamani": "2026-08-16T12:02:23.920830+03:00",
-  "macSayisi": 339,
+  "guncellemeZamani": "2026-08-16T12:39:19.977647+03:00",
+  "macSayisi": 341,
   "maclar": [
     {
       "id": "3056757",
@@ -8,7 +8,7 @@
       "evSahibi": "LNZ Cherkasy",
       "deplasman": "Chernomorets Odessa",
       "macZamani": "2026-08-16T13:00:00+03:00",
-      "msKg": 2.07,
+      "msKg": 2.12,
       "altUst6": null,
       "iymsKg": null,
       "onerilen": false
@@ -19,9 +19,9 @@
       "evSahibi": "Portimonense",
       "deplasman": "Vizela",
       "macZamani": "2026-08-16T13:00:00+03:00",
-      "msKg": 1.59,
-      "altUst6": 17.85,
-      "iymsKg": 17.6,
+      "msKg": 1.62,
+      "altUst6": 19.75,
+      "iymsKg": 18.75,
       "onerilen": false
     },
     {
@@ -30,9 +30,9 @@
       "evSahibi": "T. Vortis",
       "deplasman": "Sagan Tosu",
       "macZamani": "2026-08-16T13:00:00+03:00",
-      "msKg": 1.77,
-      "altUst6": 28.5,
-      "iymsKg": 24.2,
+      "msKg": 1.81,
+      "altUst6": 30.5,
+      "iymsKg": 25.5,
       "onerilen": false
     },
     {
@@ -52,7 +52,7 @@
       "evSahibi": "Matsumoto Y.",
       "deplasman": "MIO Biwako Shiga",
       "macZamani": "2026-08-16T13:00:00+03:00",
-      "msKg": 1.7,
+      "msKg": 1.64,
       "altUst6": null,
       "iymsKg": null,
       "onerilen": false
@@ -107,9 +107,9 @@
       "evSahibi": "Bucheon",
       "deplasman": "Jeonbuk",
       "macZamani": "2026-08-16T13:30:00+03:00",
-      "msKg": 1.76,
-      "altUst6": 15.6,
-      "iymsKg": 20.65,
+      "msKg": 1.72,
+      "altUst6": 15.55,
+      "iymsKg": 19.7,
       "onerilen": false
     },
     {
@@ -118,9 +118,9 @@
       "evSahibi": "Gimpo Citizen",
       "deplasman": "Cheonan City",
       "macZamani": "2026-08-16T13:30:00+03:00",
-      "msKg": 1.57,
-      "altUst6": 12.7,
-      "iymsKg": 15.55,
+      "msKg": 1.58,
+      "altUst6": 12.75,
+      "iymsKg": 15.95,
       "onerilen": false
     },
     {
@@ -151,9 +151,9 @@
       "evSahibi": "Paju Citizen",
       "deplasman": "Seongnam",
       "macZamani": "2026-08-16T13:30:00+03:00",
-      "msKg": 1.77,
-      "altUst6": 27.0,
-      "iymsKg": 24.2,
+      "msKg": 1.76,
+      "altUst6": 26.5,
+      "iymsKg": 23.8,
       "onerilen": false
     },
     {
@@ -173,9 +173,9 @@
       "evSahibi": "Ulsan Hora",
       "deplasman": "Gangwon",
       "macZamani": "2026-08-16T13:30:00+03:00",
-      "msKg": 1.55,
-      "altUst6": 14.45,
-      "iymsKg": 15.55,
+      "msKg": 1.57,
+      "altUst6": 15.65,
+      "iymsKg": 16.35,
       "onerilen": false
     },
     {
@@ -217,9 +217,9 @@
       "evSahibi": "IFK Varnamo",
       "deplasman": "Ostersunds FK",
       "macZamani": "2026-08-16T14:00:00+03:00",
-      "msKg": 1.41,
+      "msKg": 1.4,
       "altUst6": 10.75,
-      "iymsKg": 11.85,
+      "iymsKg": 11.8,
       "onerilen": false
     },
     {
@@ -250,10 +250,10 @@
       "evSahibi": "Shenzhen Juniors",
       "deplasman": "Shang J. C.",
       "macZamani": "2026-08-16T14:00:00+03:00",
-      "msKg": 1.52,
-      "altUst6": 13.35,
-      "iymsKg": 14.95,
-      "onerilen": true
+      "msKg": 1.55,
+      "altUst6": 14.15,
+      "iymsKg": 15.65,
+      "onerilen": false
     },
     {
       "id": "3059247",
@@ -305,9 +305,9 @@
       "evSahibi": "SK Beveren",
       "deplasman": "Anderlecht",
       "macZamani": "2026-08-16T14:30:00+03:00",
-      "msKg": 1.44,
-      "altUst6": 10.55,
-      "iymsKg": 12.15,
+      "msKg": 1.42,
+      "altUst6": 10.1,
+      "iymsKg": 11.7,
       "onerilen": false
     },
     {
@@ -373,7 +373,7 @@
       "macZamani": "2026-08-16T14:30:00+03:00",
       "msKg": 1.7,
       "altUst6": 23.8,
-      "iymsKg": 21.55,
+      "iymsKg": 21.45,
       "onerilen": false
     },
     {
@@ -426,9 +426,9 @@
       "evSahibi": "Degerfors IF",
       "deplasman": "IFK Göteborg",
       "macZamani": "2026-08-16T15:00:00+03:00",
-      "msKg": 1.51,
-      "altUst6": 13.3,
-      "iymsKg": 14.45,
+      "msKg": 1.52,
+      "altUst6": 13.4,
+      "iymsKg": 14.6,
       "onerilen": true
     },
     {
@@ -459,7 +459,7 @@
       "evSahibi": "Linero IF",
       "deplasman": "Rappe Goif",
       "macZamani": "2026-08-16T15:00:00+03:00",
-      "msKg": 1.35,
+      "msKg": 1.39,
       "altUst6": null,
       "iymsKg": null,
       "onerilen": false
@@ -514,7 +514,7 @@
       "evSahibi": "St. Pauli II",
       "deplasman": "W. Bremen II",
       "macZamani": "2026-08-16T15:00:00+03:00",
-      "msKg": 1.23,
+      "msKg": 1.18,
       "altUst6": null,
       "iymsKg": null,
       "onerilen": false
@@ -604,7 +604,7 @@
       "macZamani": "2026-08-16T15:30:00+03:00",
       "msKg": 1.51,
       "altUst6": 13.5,
-      "iymsKg": 14.75,
+      "iymsKg": 14.55,
       "onerilen": true
     },
     {
@@ -613,7 +613,7 @@
       "evSahibi": "Metalist 1925",
       "deplasman": "Shakhtar D.",
       "macZamani": "2026-08-16T15:30:00+03:00",
-      "msKg": 1.88,
+      "msKg": 1.83,
       "altUst6": null,
       "iymsKg": null,
       "onerilen": false
@@ -657,7 +657,7 @@
       "evSahibi": "Odds BK II",
       "deplasman": "Hinna",
       "macZamani": "2026-08-16T16:00:00+03:00",
-      "msKg": 1.09,
+      "msKg": 1.12,
       "altUst6": null,
       "iymsKg": null,
       "onerilen": false
@@ -701,9 +701,9 @@
       "evSahibi": "Stenhousemuir",
       "deplasman": "Motherwell",
       "macZamani": "2026-08-16T16:00:00+03:00",
-      "msKg": 1.6,
-      "altUst6": 7.74,
-      "iymsKg": 14.55,
+      "msKg": 1.59,
+      "altUst6": 7.77,
+      "iymsKg": 14.25,
       "onerilen": false
     },
     {
@@ -756,9 +756,9 @@
       "evSahibi": "HJK Helsinki",
       "deplasman": "FF Jaro",
       "macZamani": "2026-08-16T16:00:00+03:00",
-      "msKg": 1.54,
-      "altUst6": 6.06,
-      "iymsKg": 12.1,
+      "msKg": 1.52,
+      "altUst6": 6.27,
+      "iymsKg": 11.9,
       "onerilen": false
     },
     {
@@ -769,7 +769,7 @@
       "macZamani": "2026-08-16T16:00:00+03:00",
       "msKg": 1.13,
       "altUst6": 4.07,
-      "iymsKg": 5.53,
+      "iymsKg": 5.54,
       "onerilen": false
     },
     {
@@ -822,9 +822,9 @@
       "evSahibi": "Chippa Utd",
       "deplasman": "Orlando Pirates",
       "macZamani": "2026-08-16T16:00:00+03:00",
-      "msKg": 2.21,
-      "altUst6": 15.05,
-      "iymsKg": 33.5,
+      "msKg": 2.25,
+      "altUst6": 15.85,
+      "iymsKg": 34.5,
       "onerilen": false
     },
     {
@@ -833,9 +833,9 @@
       "evSahibi": "Nottingham F.",
       "deplasman": "Brest",
       "macZamani": "2026-08-16T16:00:00+03:00",
-      "msKg": 1.39,
+      "msKg": 1.4,
       "altUst6": 7.42,
-      "iymsKg": 10.3,
+      "iymsKg": 10.45,
       "onerilen": false
     },
     {
@@ -976,9 +976,9 @@
       "evSahibi": "Krylia Sovetov",
       "deplasman": "Dyn. Makhachkala",
       "macZamani": "2026-08-16T17:00:00+03:00",
-      "msKg": 1.77,
-      "altUst6": 26.0,
-      "iymsKg": 23.8,
+      "msKg": 1.74,
+      "altUst6": 24.2,
+      "iymsKg": 22.5,
       "onerilen": false
     },
     {
@@ -1009,9 +1009,9 @@
       "evSahibi": "Mikkeli",
       "deplasman": "Ekenas I.",
       "macZamani": "2026-08-16T17:00:00+03:00",
-      "msKg": 1.38,
-      "altUst6": 9.64,
-      "iymsKg": 10.95,
+      "msKg": 1.47,
+      "altUst6": 12.8,
+      "iymsKg": 13.55,
       "onerilen": false
     },
     {
@@ -1020,9 +1020,9 @@
       "evSahibi": "Oulu",
       "deplasman": "Inter Turku",
       "macZamani": "2026-08-16T17:00:00+03:00",
-      "msKg": 1.62,
-      "altUst6": 17.6,
-      "iymsKg": 17.8,
+      "msKg": 1.6,
+      "altUst6": 16.75,
+      "iymsKg": 17.15,
       "onerilen": false
     },
     {
@@ -1031,9 +1031,9 @@
       "evSahibi": "RAAL La Louviere",
       "deplasman": "KAA Gent",
       "macZamani": "2026-08-16T17:00:00+03:00",
-      "msKg": 1.59,
-      "altUst6": 16.5,
-      "iymsKg": 16.9,
+      "msKg": 1.61,
+      "altUst6": 17.3,
+      "iymsKg": 17.55,
       "onerilen": false
     },
     {
@@ -1053,9 +1053,9 @@
       "evSahibi": "VJS",
       "deplasman": "JJK Jyvaskyla",
       "macZamani": "2026-08-16T17:00:00+03:00",
-      "msKg": 1.2,
-      "altUst6": 4.53,
-      "iymsKg": 6.6,
+      "msKg": 1.19,
+      "altUst6": 4.26,
+      "iymsKg": 6.3,
       "onerilen": false
     },
     {
@@ -1064,7 +1064,7 @@
       "evSahibi": "Runavik",
       "deplasman": "EB Streymur",
       "macZamani": "2026-08-16T17:00:00+03:00",
-      "msKg": 1.46,
+      "msKg": 1.48,
       "altUst6": null,
       "iymsKg": null,
       "onerilen": false
@@ -1076,8 +1076,8 @@
       "deplasman": "Traeff",
       "macZamani": "2026-08-16T17:00:00+03:00",
       "msKg": 1.44,
-      "altUst6": 7.98,
-      "iymsKg": 11.6,
+      "altUst6": 7.91,
+      "iymsKg": 11.65,
       "onerilen": false
     },
     {
@@ -1240,9 +1240,9 @@
       "evSahibi": "Santander",
       "deplasman": "Villarreal",
       "macZamani": "2026-08-16T18:00:00+03:00",
-      "msKg": 1.43,
-      "altUst6": 9.69,
-      "iymsKg": 11.7,
+      "msKg": 1.42,
+      "altUst6": 9.56,
+      "iymsKg": 11.5,
       "onerilen": false
     },
     {
@@ -1284,9 +1284,9 @@
       "evSahibi": "Burnley",
       "deplasman": "West Ham",
       "macZamani": "2026-08-16T18:00:00+03:00",
-      "msKg": 1.43,
-      "altUst6": 10.2,
-      "iymsKg": 11.85,
+      "msKg": 1.44,
+      "altUst6": 10.75,
+      "iymsKg": 12.35,
       "onerilen": false
     },
     {
@@ -1427,9 +1427,9 @@
       "evSahibi": "WSG Tirol",
       "deplasman": "Salzburg",
       "macZamani": "2026-08-16T18:00:00+03:00",
-      "msKg": 1.57,
+      "msKg": 1.59,
       "altUst6": 6.52,
-      "iymsKg": 13.0,
+      "iymsKg": 13.4,
       "onerilen": false
     },
     {
@@ -1438,7 +1438,7 @@
       "evSahibi": "Dila Gori",
       "deplasman": "Meshakhte Tkibuli",
       "macZamani": "2026-08-16T18:00:00+03:00",
-      "msKg": 1.83,
+      "msKg": 1.87,
       "altUst6": null,
       "iymsKg": null,
       "onerilen": false
@@ -1449,7 +1449,7 @@
       "evSahibi": "FK BSK Banja Luka",
       "deplasman": "Velez Mostar",
       "macZamani": "2026-08-16T18:00:00+03:00",
-      "msKg": 1.62,
+      "msKg": 1.63,
       "altUst6": null,
       "iymsKg": null,
       "onerilen": false
@@ -1471,9 +1471,9 @@
       "evSahibi": "Kjelsas",
       "deplasman": "Junkeren",
       "macZamani": "2026-08-16T18:00:00+03:00",
-      "msKg": 1.45,
+      "msKg": 1.44,
       "altUst6": 4.56,
-      "iymsKg": 10.25,
+      "iymsKg": 10.1,
       "onerilen": false
     },
     {
@@ -1485,6 +1485,17 @@
       "msKg": 1.41,
       "altUst6": 5.1,
       "iymsKg": 9.56,
+      "onerilen": false
+    },
+    {
+      "id": "3079998",
+      "lig": "Letonya Kupası",
+      "evSahibi": "Super Nova",
+      "deplasman": "Rigas Skola",
+      "macZamani": "2026-08-16T18:00:00+03:00",
+      "msKg": null,
+      "altUst6": null,
+      "iymsKg": null,
       "onerilen": false
     },
     {
@@ -1515,9 +1526,9 @@
       "evSahibi": "Cracovia",
       "deplasman": "Rakow C.",
       "macZamani": "2026-08-16T18:30:00+03:00",
-      "msKg": 1.61,
+      "msKg": 1.62,
       "altUst6": 19.1,
-      "iymsKg": 18.3,
+      "iymsKg": 18.35,
       "onerilen": false
     },
     {
@@ -1592,9 +1603,9 @@
       "evSahibi": "TS Galaxy",
       "deplasman": "Gold. Arrow",
       "macZamani": "2026-08-16T18:30:00+03:00",
-      "msKg": 1.82,
-      "altUst6": 32.0,
-      "iymsKg": 26.5,
+      "msKg": 1.84,
+      "altUst6": 33.5,
+      "iymsKg": 27.0,
       "onerilen": false
     },
     {
@@ -1603,7 +1614,7 @@
       "evSahibi": "Zalgiris Kaunas",
       "deplasman": "FK Transinvest",
       "macZamani": "2026-08-16T18:45:00+03:00",
-      "msKg": 1.59,
+      "msKg": 1.65,
       "altUst6": null,
       "iymsKg": null,
       "onerilen": false
@@ -1625,9 +1636,9 @@
       "evSahibi": "Başakşehir",
       "deplasman": "Kocaelispor",
       "macZamani": "2026-08-16T19:00:00+03:00",
-      "msKg": 1.8,
-      "altUst6": 14.65,
-      "iymsKg": 21.25,
+      "msKg": 1.76,
+      "altUst6": 14.55,
+      "iymsKg": 20.2,
       "onerilen": false
     },
     {
@@ -1658,7 +1669,7 @@
       "evSahibi": "CSKA Sofya",
       "deplasman": "Botev Vratsa",
       "macZamani": "2026-08-16T19:00:00+03:00",
-      "msKg": 2.02,
+      "msKg": 1.99,
       "altUst6": null,
       "iymsKg": null,
       "onerilen": false
@@ -1825,7 +1836,7 @@
       "macZamani": "2026-08-16T19:30:00+03:00",
       "msKg": 1.57,
       "altUst6": 17.25,
-      "iymsKg": 16.95,
+      "iymsKg": 17.0,
       "onerilen": false
     },
     {
@@ -2021,7 +2032,7 @@
       "evSahibi": "Samgurali Tskaltubo",
       "deplasman": "Dinamo B.",
       "macZamani": "2026-08-16T20:00:00+03:00",
-      "msKg": 1.44,
+      "msKg": 1.45,
       "altUst6": null,
       "iymsKg": null,
       "onerilen": false
@@ -2054,7 +2065,7 @@
       "evSahibi": "Valerenga II",
       "deplasman": "IF Ready",
       "macZamani": "2026-08-16T20:00:00+03:00",
-      "msKg": 1.06,
+      "msKg": null,
       "altUst6": null,
       "iymsKg": null,
       "onerilen": false
@@ -2065,10 +2076,10 @@
       "evSahibi": "Lommel SK",
       "deplasman": "Charleroi",
       "macZamani": "2026-08-16T20:15:00+03:00",
-      "msKg": 1.52,
-      "altUst6": 13.3,
-      "iymsKg": 14.65,
-      "onerilen": true
+      "msKg": 1.44,
+      "altUst6": 10.95,
+      "iymsKg": 12.55,
+      "onerilen": false
     },
     {
       "id": "3059444",
@@ -2318,9 +2329,9 @@
       "evSahibi": "Koper",
       "deplasman": "NK Bravo",
       "macZamani": "2026-08-16T21:15:00+03:00",
-      "msKg": 1.34,
+      "msKg": 1.33,
       "altUst6": 6.97,
-      "iymsKg": 9.52,
+      "iymsKg": 9.43,
       "onerilen": false
     },
     {
@@ -2340,9 +2351,9 @@
       "evSahibi": "Beşiktaş",
       "deplasman": "Eyüpspor",
       "macZamani": "2026-08-16T21:30:00+03:00",
-      "msKg": 1.62,
+      "msKg": 1.59,
       "altUst6": 7.41,
-      "iymsKg": 14.25,
+      "iymsKg": 13.8,
       "onerilen": false
     },
     {
@@ -2450,7 +2461,7 @@
       "evSahibi": "Always Ready",
       "deplasman": "Real Potosi",
       "macZamani": "2026-08-16T22:00:00+03:00",
-      "msKg": 1.5,
+      "msKg": 1.46,
       "altUst6": null,
       "iymsKg": null,
       "onerilen": false
@@ -2670,7 +2681,7 @@
       "evSahibi": "CD Choloma",
       "deplasman": "Marathon",
       "macZamani": "2026-08-17T00:00:00+03:00",
-      "msKg": 1.67,
+      "msKg": 1.61,
       "altUst6": null,
       "iymsKg": null,
       "onerilen": false
@@ -2681,7 +2692,7 @@
       "evSahibi": "Nacional Potosi",
       "deplasman": "Academia del Balompie",
       "macZamani": "2026-08-17T00:15:00+03:00",
-      "msKg": 1.27,
+      "msKg": 1.28,
       "altUst6": null,
       "iymsKg": null,
       "onerilen": false
@@ -2781,7 +2792,7 @@
       "deplasman": "Phila. Union",
       "macZamani": "2026-08-17T01:00:00+03:00",
       "msKg": 1.37,
-      "altUst6": 8.78,
+      "altUst6": 8.87,
       "iymsKg": 10.4,
       "onerilen": false
     },
@@ -2847,8 +2858,8 @@
       "deplasman": "Atl San Luis",
       "macZamani": "2026-08-17T02:00:00+03:00",
       "msKg": 1.57,
-      "altUst6": 9.47,
-      "iymsKg": 14.55,
+      "altUst6": 9.86,
+      "iymsKg": 14.7,
       "onerilen": false
     },
     {
@@ -3089,6 +3100,17 @@
       "deplasman": "FK Panevezys",
       "macZamani": "2026-08-17T18:00:00+03:00",
       "msKg": 1.35,
+      "altUst6": null,
+      "iymsKg": null,
+      "onerilen": false
+    },
+    {
+      "id": "3138856",
+      "lig": "Letonya Kupası",
+      "evSahibi": "FK Auda",
+      "deplasman": "Grobinas SC",
+      "macZamani": "2026-08-17T18:00:00+03:00",
+      "msKg": null,
       "altUst6": null,
       "iymsKg": null,
       "onerilen": false
@@ -3396,9 +3418,9 @@
       "evSahibi": "RFC Liege",
       "deplasman": "Francs Borains",
       "macZamani": "2026-08-17T21:00:00+03:00",
-      "msKg": 1.43,
-      "altUst6": 10.9,
-      "iymsKg": 12.4,
+      "msKg": 1.41,
+      "altUst6": 10.25,
+      "iymsKg": 11.8,
       "onerilen": false
     },
     {
@@ -3451,7 +3473,7 @@
       "evSahibi": "Cremonese",
       "deplasman": "Sampdoria",
       "macZamani": "2026-08-17T21:45:00+03:00",
-      "msKg": 1.77,
+      "msKg": 1.76,
       "altUst6": 21.4,
       "iymsKg": 22.5,
       "onerilen": false
