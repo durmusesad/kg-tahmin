@@ -175,6 +175,18 @@
   .tab-btn[data-tab="kesin"].active{color:var(--tile-dark);}
   .tab-btn[data-tab="olasi"].active{color:var(--brass-dark);}
 
+  .search-row{margin-bottom:8px;}
+  .search-row input{
+    width:100%;
+    border:1px solid var(--border);
+    background:var(--parchment-2); color:var(--ink);
+    border-radius:9px;
+    padding:9px 12px;
+    font-size:13px; font-weight:600;
+  }
+  .search-row input::placeholder{color:var(--ink-faint); font-weight:400;}
+  .search-row input:focus{outline:none; border-color:var(--kupon);}
+
   .filter-controls{
     display:grid;
     grid-template-columns:1fr 1fr;
@@ -507,6 +519,9 @@
         <button class="tab-btn" id="tabOlasi" data-tab="olasi">Olası<span class="cnt" id="cntOlasi">0</span></button>
         <button class="tab-btn" id="tabTum" data-tab="tum">Tüm Bülten<span class="cnt" id="cntTum">0</span></button>
       </div>
+      <div class="search-row">
+        <input type="search" id="searchInput" placeholder="Takım veya lig ara…" autocomplete="off">
+      </div>
       <div class="filter-controls">
         <div>
           <label for="ligSelect">Lig</label>
@@ -593,6 +608,7 @@
   let currentTab = "kesin";
   let currentLeague = "";
   let currentSort = "rate_desc";
+  let searchQuery = "";
   let expandedIds = new Set();
 
   const SORTS = {
@@ -826,13 +842,20 @@
     }
   }
 
+  function matchesSearch(m, q){
+    const hay = (m.evSahibi + " " + m.deplasman + " " + m.lig).toLocaleLowerCase("tr");
+    return hay.includes(q);
+  }
+
   function renderList(){
     let matches = tabMatches(currentTab);
     if (currentLeague) matches = matches.filter(m => m.lig === currentLeague);
+    if (searchQuery) matches = matches.filter(m => matchesSearch(m, searchQuery));
     matches = matches.slice().sort(SORTS[currentSort].cmp);
 
     $("list").innerHTML = matches.map(matchCard).join("");
     $("emptyNote").style.display = matches.length ? "none" : "block";
+    $("emptyNote").textContent = searchQuery ? "Aramanla eşleşen maç yok." : "Kriterlere uyan maç yok.";
     $("tabNote").textContent = TAB_NOTES[currentTab];
   }
 
@@ -863,6 +886,10 @@
   const ligSelectEl = $("ligSelect");
   ligSelectEl.addEventListener("change", () => { currentLeague = ligSelectEl.value; renderList(); });
   sortSelectEl.addEventListener("change", () => { currentSort = sortSelectEl.value; renderList(); });
+  $("searchInput").addEventListener("input", (ev) => {
+    searchQuery = ev.target.value.trim().toLocaleLowerCase("tr");
+    renderList();
+  });
 
   ["kesin","olasi","tum"].forEach(tab => {
     $("tab" + tab.charAt(0).toUpperCase() + tab.slice(1)).addEventListener("click", () => {
