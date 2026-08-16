@@ -270,49 +270,37 @@
     padding-top:11px;
   }
 
-  .detail-rows{display:flex; flex-direction:column; gap:6px; margin-bottom:10px;}
-  .detail-row{
-    display:flex; align-items:center; justify-content:space-between; gap:8px;
-  }
-  .detail-row .dl{
-    font-size:11px; font-weight:700; color:var(--ink-soft);
-  }
-  .detail-row .dv{
-    font-size:13px; font-weight:800; font-variant-numeric:tabular-nums;
-  }
-  .tier-chip{
-    font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.02em;
-    padding:3px 8px; border-radius:999px; flex:none;
-    color:#fff9ee;
-  }
-  .tier-chip.kesin{background:var(--tile-dark);}
-  .tier-chip.olasi{background:var(--brass-dark);}
-  .detail-row .dv.pct-kesin{color:var(--tile-dark);}
-  .detail-row .dv.pct-olasi{color:var(--brass-dark);}
-
-  .odds-row{
+  .chip-row{
     display:grid;
     grid-template-columns:repeat(3,1fr);
     gap:8px;
   }
-  .odd-chip{
+  .chip-row + .chip-row{margin-top:8px;}
+  .odd-chip, .stat-chip{
     background:var(--parchment-2);
     border-radius:10px;
     padding:7px 6px;
     text-align:center;
   }
-  .odd-chip .lbl{
-    font-size:10px; font-weight:700;
+  .odd-chip .lbl, .stat-chip .lbl{
+    font-size:9.5px; font-weight:700;
     color:var(--ink-soft);
     text-transform:uppercase;
     letter-spacing:.02em;
     margin-bottom:2px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   }
-  .odd-chip .val{
+  .odd-chip .val, .stat-chip .val{
     font-size:15.5px; font-weight:700;
     font-variant-numeric:tabular-nums;
   }
   .odd-chip .val.dash{color:var(--ink-faint); font-weight:400;}
+  .stat-chip .val{font-size:13.5px;}
+  .stat-chip.kesin{background:color-mix(in srgb, var(--tile) 18%, var(--parchment-2));}
+  .stat-chip.kesin .val{color:var(--tile-dark);}
+  .stat-chip.olasi{background:color-mix(in srgb, var(--brass) 20%, var(--parchment-2));}
+  .stat-chip.olasi .val{color:var(--brass-dark);}
+  .stat-chip.pct .val{font-size:17px;}
 
   footer{
     text-align:center; margin-top:36px; padding:0 20px;
@@ -466,22 +454,24 @@
     return '<div class="odd-chip"><div class="lbl">' + label + '</div>' +
       '<div class="val' + (v===null ? " dash" : "") + '">' + (v===null ? "–" : v) + '</div></div>';
   }
+  function statChip(cls, label, value){
+    return '<div class="stat-chip ' + cls + '"><div class="lbl">' + label + '</div>' +
+      '<div class="val">' + value + '</div></div>';
+  }
 
   function matchCard(m){
     const tier = m.guven; // "kesin" | "olasi" | null
 
-    let inner = '<div class="detail-rows">';
+    let inner = "";
     if (tier){
       const pct = Math.round(m.tutmaOrani * 100);
-      inner += '<div class="detail-row"><span class="dl">Güven</span>' +
-        '<span class="tier-chip ' + tier + '">' + (tier === "kesin" ? "Kesin" : "Olası") + '</span></div>';
-      inner += '<div class="detail-row"><span class="dl">Kombinasyon</span>' +
-        '<span class="dv">' + Math.floor(m.iymsKg) + ' / ' + Math.floor(m.altUst6) + '</span></div>';
-      inner += '<div class="detail-row"><span class="dl">Arşiv</span>' +
-        '<span class="dv pct-' + tier + '">' + m.tutma + '/' + m.toplam + ' (' + pct + '%)</span></div>';
+      inner += '<div class="chip-row">' +
+        statChip(tier, "Güven", tier === "kesin" ? "Kesin" : "Olası") +
+        statChip(tier, "Kombinasyon", Math.floor(m.iymsKg) + " / " + Math.floor(m.altUst6)) +
+        statChip(tier + " pct", "Arşiv", m.tutma + "/" + m.toplam + " · %" + pct) +
+        '</div>';
     }
-    inner += '</div>';
-    inner += '<div class="odds-row">' +
+    inner += '<div class="chip-row">' +
       oddChip("MS KG", m.msKg) +
       oddChip("6+ Gol", m.altUst6) +
       oddChip("İY/MS KG", m.iymsKg) +
