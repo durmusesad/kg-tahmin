@@ -4,19 +4,40 @@ Nesine.com'un genel (giriş gerektirmeyen) bülten API'sinden futbol maçların�
 **MS Karşılıklı Gol**, **6+ Gol** ve **İY/MS Karşılıklı Gol** oranlarına bakarak
 "Karşılıklı Gol oynanabilir" olarak işaretlenen maçları ayrı bir listede gösterir.
 
-Canlı site: `https://drms02.github.io/kg-tahmin/` (GitHub Pages'te yayınlandıktan sonra aktif olur)
+Canlı site: **https://kg-tahmin-bulten.durmusesad568.workers.dev**
 
-## Nasıl çalışır
+## Mimari — tamamen Cloudflare üzerinde
 
-- `scraper.py`, Nesine'nin `getprebultenfull` uç noktasından ham bülteni çeker ve
-  `data/odds.json` dosyasına yazar.
-- `.github/workflows/update-and-deploy.yml` bu script'i **her 10 dakikada bir**
-  (ve her `main`'e push'ta) otomatik çalıştırır, veriyi commit'ler ve siteyi
-  GitHub Pages'e deploy eder.
-- `index.html` tamamen statiktir; önce `worker/` altındaki Cloudflare Worker
-  proxy'sinden (bkz. aşağıdaki bölüm) taze veri çekmeyi dener, erişilemezse
-  `data/odds.json` / `data/live.json`'a düşer. Sayfa görünür olduğunda ve her
-  1 dakikada bir kendini yeniler. Sunucu/backend yoktur (Worker hariç).
+Sistem tek bir Cloudflare Worker üzerinde çalışır (`worker/src/index.js`).
+GitHub Actions/Pages **kullanılmıyor** — GitHub sadece kod deposu (kaynak
+kontrolü) olarak kullanılıyor, herhangi bir otomasyon/deploy GitHub üzerinden
+tetiklenmiyor.
+
+Worker tek domainde hem sayfayı hem veriyi sunar:
+
+- `GET /` → `index.html`'i doğrudan döner (statik sayfa).
+- `GET /api/bulten` → ön-maç bülteni + KG/6+ Gol/İY-MS-KG tahmini, 60sn edge cache.
+- `GET /api/canli` → o an oynanan maçlar (dakika, skor), 30sn edge cache.
+
+`index.html` bu iki API'yi aynı origin'den (relative path, `/api/bulten` ve
+`/api/canli`) çeker; sayfa görünür olduğunda ve her 1 dakikada bir kendini
+yeniler. Statik dosya/fallback yoktur — Worker çalışmıyorsa "Bülten
+yüklenemedi" mesajı gösterilir.
+
+Nesine'nin API'leri tarayıcıdan doğrudan erişime (CORS) kapalı olduğu için
+bu proxy gerekiyor; Worker Nesine'den anlık veri çekip edge'de kısa süreli
+cache'ler, böylece hem CORS aşılıyor hem Nesine'ye aşırı istek gitmiyor.
+
+### Deploy
+
+```bash
+cd worker
+CLOUDFLARE_API_TOKEN=... npx wrangler deploy
+```
+
+Token'a **Account → Workers Scripts → Edit** izni yeterli. `wrangler.toml`
+içindeki `account_id` ve worker adı (`kg-tahmin-bulten`) sabittir; bunlar
+değişirse site URL'si de değişir.
 
 ## Kupon (kazanç hesaplayıcı)
 
@@ -40,7 +61,9 @@ içinde). Kupon `localStorage`'da tutulur, sayfa yenilense de kaybolmaz.
 Excel tablosundan (493 geçmiş maç) türetilmiş bir bakış tablosudur: İY/MS KG
 ve 6+ Gol oranlarının **küsüratsız (tam sayı) çifti** anahtar olarak kullanılır
 (ör. `"14,13"`), değeri de o çiftin geçmişte kaç kez denenip kaçında gerçekten
-MS KG (karşılıklı gol) çıktığıdır.
+MS KG (karşılıklı gol) çıktığıdır. Bu dosya `worker/src/index.js` tarafından
+build sırasında doğrudan import edilir (`import gecmisData from
+"../../data/historical_stats.json"`), yani **silinmemeli/taşınmamalı**.
 
 Canlı bir maçın İY/MS KG ve 6+ Gol oranları küsüratsız hale getirilip bu
 tabloda aranır:
@@ -49,7 +72,7 @@ tabloda aranır:
 - Çift tabloda **varsa** → maç listelenir, o çiftin geçmiş tutma oranıyla
   (`tutma/toplam`) etiketlenir.
 
-Eşleşen maçlar iki güven seviyesine ayrılır (`scraper.py` → `guven` alanı):
+Eşleşen maçlar iki güven seviyesine ayrılır (`guven` alanı):
 
 - **Kesin**: çift en az 3 kez denenmiş VE hepsinde (%100) tutmuş.
 - **Olası**: çift geçmişte var ama ya 3'ten az denenmiş ya da %100'ün altında tutmuş.
@@ -62,18 +85,18 @@ bir garanti değildir — özellikle "Olası" sekmesindeki düşük örnekli çi
 oranı güvenilir olmayabilir.
 
 `data/historical_stats.json` statik bir anlık görüntüdür; Excel tablosu
-güncellendikçe yeniden üretilip commit'lenmesi gerekir (otomatik değildir,
-çünkü OneDrive'a kimlik doğrulamalı erişim CI'da yoktur).
+güncellendikçe yeniden üretilip commit'lenmesi ve worker'ın yeniden deploy
+edilmesi gerekir (otomatik değildir).
 
 ## Canlı Maçlar
 
 Site ayrı bir **Canlı** sekmesinde, o an oynanmakta olan maçları oynanan
 dakika ve güncel skorla birlikte listeler (en son başlayan üstte).
 
-- `scraper.py`, `getlivebultenv3` uç noktasından canlı futbol maçlarını,
-  `ls.nesine.com/.../GetLiveBetResultsWithVersion` uç noktasından da
-  durum/skor verisini çekip maç kimliğine (`C`) göre eşleştirir, sonucu
-  `data/live.json`'a yazar.
+- `worker/src/index.js`'in `/api/canli` rotası, Nesine'nin `getlivebultenv3`
+  uç noktasından canlı futbol maçlarını, `ls.nesine.com/.../
+  GetLiveBetResultsWithVersion` uç noktasından da durum/skor verisini çekip
+  maç kimliğine (`C`) göre eşleştirir.
 - Dakika, Nesine'nin gönderdiği devre başlangıç zaman damgalarından
   (`MDT`: ilk yarı/devre arası/ikinci yarı/maç sonu) hesaplanır; skor ise
   devre bazlı gol sayılarının (`ES`) toplamıdır.
@@ -82,10 +105,6 @@ dakika ve güncel skorla birlikte listeler (en son başlayan üstte).
   görüldü (yalnızca farklı, doğrulanmamış market kodlarıyla sınırlı bir
   canlı bahis menüsü var). Bu yüzden canlı sekmesi şimdilik yalnızca
   dakika + skor gösterir, tahmin/kupon sistemine dahil değildir.
-- Aynı mantık `worker/src/index.js`'in `/canli` rotasında da JS'e taşınmıştır;
-  `index.html` önce oradan (CORS'a açık, ~30sn edge cache) taze veri çekmeyi
-  dener, erişilemezse `data/live.json`'a (GitHub Actions'ın periyodik yazdığı,
-  dakikalarca gecikmeli olabilen dosya) düşer.
 
 ## Market kodları (MTID)
 
@@ -99,38 +118,19 @@ nadir olduğu) analiz edilerek çıkarıldı:
 | Toplam Gol Aralığı – "6+" | 43 | 0.0 | 4 |
 | İY + MS Karşılıklı Gol – "Evet/Evet" | 801 | 0.0 | 3 |
 
-Nesine site yapısını değiştirirse `scraper.py` içindeki bu eşleşmelerin
-güncellenmesi gerekebilir.
+Nesine site yapısını değiştirirse `worker/src/index.js` içindeki bu
+eşleşmelerin güncellenmesi gerekebilir.
 
-## Cloudflare Worker (canlı proxy)
+## scraper.py (artık kullanılmıyor, referans amaçlı)
 
-Nesine'nin API'leri tarayıcıdan doğrudan erişime (CORS) kapalı; bu yüzden
-GitHub Actions'ın periyodik yazdığı statik dosyalar tek başına dakikalarca
-gecikmeli kalıyordu. `worker/src/index.js`, `scraper.py`'daki bülten çekme/
-eşleştirme mantığının bir Cloudflare Worker portudur:
-
-- `GET /` → ön-maç bülteni (`data/odds.json` ile aynı şema), 60sn edge cache.
-- `GET /canli` → canlı maçlar (`data/live.json` ile aynı şema), 30sn edge cache.
-
-`index.html` her zaman önce bu Worker'ı dener, erişilemezse statik dosyalara
-düşer (bkz. yukarıdaki bölümler). Deploy için:
-
-```bash
-cd worker
-npx wrangler login        # bir kereye mahsus, Cloudflare hesabına bağlar
-npx wrangler deploy
-```
-
-`wrangler.toml` içindeki `account_id` ve worker adı (`kg-tahmin-bulten`)
-sabit; `index.html`'deki `LIVE_ENDPOINT` sabiti bu worker'ın URL'siyle
-eşleşmelidir.
-
-## Lokalde çalıştırma
+`scraper.py`, worker'ın JS mantığının orijinal Python taslağıydı. Artık
+hiçbir otomasyon onu çalıştırmıyor — tüm mantık `worker/src/index.js`'e
+taşındı. Sadece lokalde mantığı Python'da denemek/hata ayıklamak isteyenler
+için repoda bırakıldı:
 
 ```bash
 pip install -r requirements.txt
-python scraper.py        # data/odds.json ve data/live.json'ı üretir
-python -m http.server     # sonra localhost'ta index.html'i aç
+python scraper.py
 ```
 
 ## Not

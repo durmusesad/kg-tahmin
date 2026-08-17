@@ -4,6 +4,7 @@
 // yoğun "Yenile" trafiğinde bile Nesine'ye dakikada 1'den fazla istek gitmesini önlemek.
 
 import gecmisData from "../../data/historical_stats.json";
+import indexHtml from "../../index.html";
 
 const BULTEN_URL = "https://cdnbulten.nesine.com/api/bulten/getprebultenfull";
 const LIVE_BULTEN_URL = "https://bulten.nesine.com/api/bulten/getlivebultenv3?eventVersion=0&oddVersion=0";
@@ -252,7 +253,21 @@ export default {
       return new Response(null, { headers: CORS_HEADERS });
     }
 
-    const canliMi = new URL(request.url).pathname === "/canli";
+    const pathname = new URL(request.url).pathname;
+
+    // Statik site: aynı worker hem sayfayı hem veri API'sini sunar (tek domain,
+    // tek deploy — Cloudflare Pages'e ayrıca ihtiyaç yok).
+    if (pathname === "/" || pathname === "/index.html") {
+      return new Response(indexHtml, {
+        headers: { "Content-Type": "text/html; charset=utf-8" },
+      });
+    }
+
+    if (pathname !== "/api/bulten" && pathname !== "/api/canli") {
+      return new Response("Not found", { status: 404 });
+    }
+
+    const canliMi = pathname === "/api/canli";
     const cacheSaniye = canliMi ? 30 : 60; // canlı maçlarda dakika/skor daha sık değiştiği için daha kısa TTL
 
     const cache = caches.default;

@@ -978,14 +978,11 @@
   }
 
   /* ============== VERİ YÜKLEME ==============
-     Önce canlı Worker proxy'sinden (Nesine'den anlık çeker, edge'de cache'ler)
-     dener; erişilemezse GitHub Actions'ın periyodik yazdığı statik dosyaya düşer.
-     Canlı maçlar için de aynı Worker'ın /canli rotası + data/live.json fallback'i
-     kullanılır. */
-  const LIVE_ENDPOINT = "https://kg-tahmin-bulten.durmusesad568.workers.dev";
-  const LIVE_CANLI_ENDPOINT = LIVE_ENDPOINT + "/canli";
-  const FALLBACK_ENDPOINT = "data/odds.json";
-  const FALLBACK_CANLI_ENDPOINT = "data/live.json";
+     Sayfa da veri API'si de aynı Cloudflare Worker'dan (aynı origin) servis
+     edilir — Nesine'den anlık çeker, edge'de cache'ler. Statik dosya / GitHub
+     Actions fallback'i yok, sistem tamamen Cloudflare üzerinde çalışır. */
+  const LIVE_ENDPOINT = "/api/bulten";
+  const LIVE_CANLI_ENDPOINT = "/api/canli";
 
   function fetchJson(url){
     return fetch(url, {cache: "no-store"}).then(r => {
@@ -996,23 +993,12 @@
 
   function loadLiveMatches(){
     return fetchJson(LIVE_CANLI_ENDPOINT)
-      .then(data => {
-        // Worker /canli rotasını henüz sunmuyorsa (eski deploy) ön-maç şeması döner;
-        // "dakika" alanı yoksa bunu algılayıp statik dosyaya düş.
-        const ornek = (data.maclar || [])[0];
-        if (ornek && !("dakika" in ornek)) throw new Error("Beklenmeyen canlı veri şekli");
-        return data;
-      })
-      .catch(() => fetchJson(FALLBACK_CANLI_ENDPOINT))
       .then(data => { liveMatches = (data.maclar || []).map(m => Object.assign({canli: true}, m)); })
       .catch(() => { liveMatches = []; });
   }
 
   function load(){
-    Promise.all([
-      fetchJson(LIVE_ENDPOINT).catch(() => fetchJson(FALLBACK_ENDPOINT)),
-      loadLiveMatches(),
-    ])
+    Promise.all([fetchJson(LIVE_ENDPOINT), loadLiveMatches()])
       .then(([data]) => render(data))
       .catch(() => {
         $("emptyNote").textContent = "Bülten yüklenemedi.";
