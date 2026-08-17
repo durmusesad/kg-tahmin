@@ -35,9 +35,11 @@ cd worker
 CLOUDFLARE_API_TOKEN=... npx wrangler deploy
 ```
 
-Token'a **Account → Workers Scripts → Edit** izni yeterli. `wrangler.toml`
-içindeki `account_id` ve worker adı (`kg-tahmin-bulten`) sabittir; bunlar
-değişirse site URL'si de değişir.
+Token'a **Account → Workers Scripts → Edit** ve **Account → Workers KV
+Storage → Edit** izinleri gerekli (ikincisi `KG_SNAPSHOTS` KV namespace'i
+için — bkz. "Canlı Maçlar" bölümü). `wrangler.toml` içindeki `account_id`,
+worker adı (`kg-tahmin-bulten`) ve `kv_namespaces` id'si sabittir; bunlar
+değişirse site URL'si veya canlı tahmin verisi de değişir/kaybolur.
 
 ## Kupon (kazanç hesaplayıcı)
 
@@ -91,7 +93,9 @@ edilmesi gerekir (otomatik değildir).
 ## Canlı Maçlar
 
 Site ayrı bir **Canlı** sekmesinde, o an oynanmakta olan maçları oynanan
-dakika ve güncel skorla birlikte listeler (en son başlayan üstte).
+dakika ve güncel skorla birlikte listeler (en son başlayan üstte); alt
+filtre olarak **Tümü / Kesin / Olası** ayrımı da vardır — tıpkı maç önü
+tahminindeki gibi.
 
 - `worker/src/index.js`'in `/api/canli` rotası, Nesine'nin `getlivebultenv3`
   uç noktasından canlı futbol maçlarını, `ls.nesine.com/.../
@@ -100,11 +104,27 @@ dakika ve güncel skorla birlikte listeler (en son başlayan üstte).
 - Dakika, Nesine'nin gönderdiği devre başlangıç zaman damgalarından
   (`MDT`: ilk yarı/devre arası/ikinci yarı/maç sonu) hesaplanır; skor ise
   devre bazlı gol sayılarının (`ES`) toplamıdır.
-- Canlı bültende **KG / 6+ Gol / İY-MS KG oranları henüz gösterilmiyor** —
-  incelemede bu marketlerin (MTID 38/43/801) in-play akışta hiç sunulmadığı
-  görüldü (yalnızca farklı, doğrulanmamış market kodlarıyla sınırlı bir
-  canlı bahis menüsü var). Bu yüzden canlı sekmesi şimdilik yalnızca
-  dakika + skor gösterir, tahmin/kupon sistemine dahil değildir.
+- Canlı bültende **KG / 6+ Gol / İY-MS KG oranları hiç sunulmuyor** —
+  incelemede bu marketlerin (MTID 38/43/801) in-play akışta, maçın en
+  market-zengin anında (ilk yarının başı) bile hiç bulunmadığı doğrulandı.
+  Bunun yerine **"maç öncesi son oran"** yakalanıp kullanılır:
+
+  - `wrangler.toml`'daki `[triggers]` ile worker'a bağlı bir **Cron
+    Trigger** her dakika `scheduled()` handler'ını (`snapshotAlVeYaz`)
+    çalıştırır; o an kickoff'a ≤2 dakika kalmış ve KG/6+ Gol/İY-MS-KG
+    oranı olan her maçın o anki oranı + `guven` (Kesin/Olası) hesabı bir
+    **Workers KV** namespace'ine (`KG_SNAPSHOTS`, maç id'sine göre, 6 saat
+    TTL ile) yazılır.
+  - `/api/canli` bir maçı listelerken KV'den o maçın son yazılmış anlık
+    görüntüsünü okur (`canliyaTahminEkle`); varsa oran + tier chip'leri
+    ve "bu oran maç öncesi son değerdir, canlı güncellenmez" notuyla
+    gösterilir, yoksa "son oranı yakalanamadı" notu gösterilir.
+  - Bu snapshot'lar **kupona eklenemez** — donmuş/bayat oran olduğu için
+    gerçek bahis kararına temel oluşturmaması amaçlanmıştır, sadece
+    bilgilendiricidir.
+  - KV yazma bütçesi: günde ~250 maç × maçın kickoff'a ≤2dk kaldığı ~2
+    cron tik'i ⇒ günlük ~500 yazma, Workers KV free plan'ın (1000/gün)
+    altında kalacak şekilde tasarlandı.
 
 ## Market kodları (MTID)
 

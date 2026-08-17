@@ -71,6 +71,35 @@ async function bultenCek() {
   return resp.json();
 }
 
+// Bir etkinliğin MA (market) listesinden KG tahmin alanlarını (msKg, altUst6,
+// iymsKg, onerilen, tutma, toplam, tutmaOrani, guven) çıkarır. Hem ön-maç hem
+// canlı (henüz ön-bültenden düşmemiş, donmuş oranlı) maçlarda ortak kullanılır.
+function tahminAlanlariCikar(ma) {
+  const msKg = oranBul(ma, 38, 0.0, 1);
+  const altUst6 = oranBul(ma, 43, 0.0, 4);
+  const iymsKg = oranBul(ma, 801, 0.0, 3);
+
+  let onerilen = false;
+  let tutma = null;
+  let toplam = null;
+  let tutmaOrani = null;
+  let guven = null;
+
+  if (iymsKg !== null && altUst6 !== null) {
+    const ciftAnahtari = `${Math.floor(iymsKg)},${Math.floor(altUst6)}`;
+    const istatistik = gecmis[ciftAnahtari];
+    if (istatistik) {
+      tutma = istatistik.tutma;
+      toplam = istatistik.toplam;
+      tutmaOrani = tutma / toplam;
+      onerilen = true;
+      guven = toplam >= 3 && tutmaOrani === 1.0 ? "kesin" : "olasi";
+    }
+  }
+
+  return { msKg, altUst6, iymsKg, onerilen, tutma, toplam, tutmaOrani, guven };
+}
+
 function maclariIsle(veri) {
   const sg = veri.sg || {};
   const etkinlikler = sg.EA || [];
@@ -88,43 +117,13 @@ function maclariIsle(veri) {
     const macZamaniDate = esdToDate(e.ESD);
     if (!macZamaniDate || macZamaniDate.getTime() < simdi) continue;
 
-    const ma = e.MA || [];
-    const msKg = oranBul(ma, 38, 0.0, 1);
-    const altUst6 = oranBul(ma, 43, 0.0, 4);
-    const iymsKg = oranBul(ma, 801, 0.0, 3);
-
-    let onerilen = false;
-    let tutma = null;
-    let toplam = null;
-    let tutmaOrani = null;
-    let guven = null;
-
-    if (iymsKg !== null && altUst6 !== null) {
-      const ciftAnahtari = `${Math.floor(iymsKg)},${Math.floor(altUst6)}`;
-      const istatistik = gecmis[ciftAnahtari];
-      if (istatistik) {
-        tutma = istatistik.tutma;
-        toplam = istatistik.toplam;
-        tutmaOrani = tutma / toplam;
-        onerilen = true;
-        guven = toplam >= 3 && tutmaOrani === 1.0 ? "kesin" : "olasi";
-      }
-    }
-
     maclar.push({
       id: String(e.C ?? ""),
       lig: ligAdiBul(ligler, e.LC),
       evSahibi,
       deplasman,
       macZamani: toIstanbulIso(macZamaniDate),
-      msKg,
-      altUst6,
-      iymsKg,
-      onerilen,
-      tutma,
-      toplam,
-      tutmaOrani,
-      guven,
+      ...tahminAlanlariCikar(e.MA || []),
     });
   }
 
@@ -218,6 +217,7 @@ function canliMaclariIsle(canliBultenVerisi, canliSkorVerisi) {
     if (!evSahibi || !deplasman) continue;
 
     const macZamaniDate = esdToDate(e.ESD);
+
     const [skorEv, skorDep] = canliSkorHesapla(skorKayit);
 
     maclar.push({
@@ -234,6 +234,64 @@ function canliMaclariIsle(canliBultenVerisi, canliSkorVerisi) {
 
   maclar.sort((a, b) => (b.macZamani || "").localeCompare(a.macZamani || "")); // yeni başlayan üstte
   return maclar;
+}
+
+// Canlı bültende KG/6+Gol/İY-MS-KG marketleri hiç sunulmuyor (Nesine'nin
+// in-play market kataloğunda yoklar). Bu yüzden her maçın başlamasından
+// hemen önceki son ön-maç oranı `snapshotAlVeYaz` tarafından KV'ye yazılır;
+// burada o donmuş anlık görüntü okunup maça eklenir ve aynı geçmiş-veri
+// tablosuyla Kesin/Olası hesaplanır.
+async function canliyaTahminEkle(maclar, env) {
+  const bosTahmin = {
+    msKg: null, altUst6: null, iymsKg: null,
+    onerilen: false, tutma: null, toplam: null, tutmaOrani: null, guven: null,
+    tahminZamani: null,
+  };
+  return Promise.all(maclar.map(async (m) => {
+    if (!env || !env.KG_SNAPSHOTS) return { ...m, ...bosTahmin };
+    try {
+      const ham = await env.KG_SNAPSHOTS.get(m.id);
+      if (!ham) return { ...m, ...bosTahmin };
+      const anlik = JSON.parse(ham);
+      return {
+        ...m,
+        msKg: anlik.msKg, altUst6: anlik.altUst6, iymsKg: anlik.iymsKg,
+        onerilen: anlik.onerilen, tutma: anlik.tutma, toplam: anlik.toplam,
+        tutmaOrani: anlik.tutmaOrani, guven: anlik.guven,
+        tahminZamani: anlik.tahminZamani || null,
+      };
+    } catch (err) {
+      return { ...m, ...bosTahmin };
+    }
+  }));
+}
+
+// Her dakika (bkz. wrangler.toml [triggers]) çalışır: ön-maç bültenini çekip
+// kickoff'a 2 dakikadan az kalmış (ya da yeni başlamış) maçların o anki
+// KG/6+Gol/İY-MS-KG oranlarını KV'ye yazar — canlıya geçtiklerinde bu
+// "maç öncesi son oran" anlık görüntüsü kullanılabilsin diye.
+async function snapshotAlVeYaz(env) {
+  if (!env || !env.KG_SNAPSHOTS) return;
+  let veri;
+  try {
+    veri = await bultenCek();
+  } catch (err) {
+    return; // sessizce vazgeç, bir dakika sonra tekrar denenecek
+  }
+  const maclar = maclariIsle(veri);
+  const simdiMs = Date.now();
+
+  const yazmalar = [];
+  for (const m of maclar) {
+    if (m.msKg == null && m.altUst6 == null && m.iymsKg == null) continue; // hiç market yoksa saklamaya değmez
+    const macMs = new Date(m.macZamani).getTime();
+    if (!Number.isFinite(macMs)) continue;
+    const kalanDk = (macMs - simdiMs) / 60000;
+    if (kalanDk < 0 || kalanDk > 2) continue; // sadece kickoff'a en fazla 2 dk kalan maçlar
+    const kayit = { ...m, tahminZamani: toIstanbulIso(new Date()) };
+    yazmalar.push(env.KG_SNAPSHOTS.put(m.id, JSON.stringify(kayit), { expirationTtl: 6 * 3600 }));
+  }
+  await Promise.all(yazmalar);
 }
 
 function jsonResponse(obj, status, extraHeaders) {
@@ -286,7 +344,8 @@ export default {
     try {
       if (canliMi) {
         const [canliBulten, canliSkorVerisi] = await Promise.all([canliBultenCek(), canliSkorCek()]);
-        const maclar = canliMaclariIsle(canliBulten, canliSkorVerisi);
+        const hamMaclar = canliMaclariIsle(canliBulten, canliSkorVerisi);
+        const maclar = await canliyaTahminEkle(hamMaclar, env);
         cikti = { guncellemeZamani: toIstanbulIso(new Date()), macSayisi: maclar.length, maclar };
       } else {
         const veri = await bultenCek();
@@ -307,5 +366,9 @@ export default {
 
     ctx.waitUntil(cache.put(cacheKey, response.clone()));
     return response;
+  },
+
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(snapshotAlVeYaz(env));
   },
 };

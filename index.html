@@ -175,6 +175,11 @@
   .tab-btn[data-tab="kesin"].active{color:var(--tile-dark);}
   .tab-btn[data-tab="olasi"].active{color:var(--brass-dark);}
   .tab-btn[data-tab="canli"].active{color:var(--seal);}
+  .sub-tabs{margin-top:-3px;}
+  .sub-tabs[hidden]{display:none;}
+  .sub-tabs .tab-btn{padding:6px 4px; font-size:11px;}
+  .sub-tabs .tab-btn[data-subtab="kesin"].active{color:var(--tile-dark);}
+  .sub-tabs .tab-btn[data-subtab="olasi"].active{color:var(--brass-dark);}
 
   .search-row{margin-bottom:8px;}
   .search-row input{
@@ -547,6 +552,11 @@
         <button class="tab-btn" id="tabTum" data-tab="tum">Tüm Bülten<span class="cnt" id="cntTum">0</span></button>
         <button class="tab-btn" id="tabCanli" data-tab="canli">Canlı<span class="cnt" id="cntCanli">0</span></button>
       </div>
+      <div class="tabs sub-tabs" id="canliSubTabs" hidden>
+        <button class="tab-btn active" id="subTumu" data-subtab="tumu">Tümü<span class="cnt" id="cntCanliTumu">0</span></button>
+        <button class="tab-btn" id="subKesin" data-subtab="kesin">Kesin<span class="cnt" id="cntCanliKesin">0</span></button>
+        <button class="tab-btn" id="subOlasi" data-subtab="olasi">Olası<span class="cnt" id="cntCanliOlasi">0</span></button>
+      </div>
       <div class="search-row">
         <input type="search" id="searchInput" placeholder="Takım veya lig ara…" autocomplete="off">
       </div>
@@ -635,6 +645,7 @@
   let allMatches = [];
   let liveMatches = [];
   let currentTab = "kesin";
+  let canliAltFiltre = "tumu"; // "tumu" | "kesin" | "olasi" — sadece Canlı sekmesinde kullanılır
   let currentLeague = "";
   let currentSort = "rate_desc";
   let searchQuery = "";
@@ -665,7 +676,7 @@
     kesin: "Geçmişte en az 3 kez denenmiş ve hepsinde (%100) karşılıklı gol çıkmış oran çiftleri.",
     olasi: "Geçmişte görülmüş ama 3 örnekten az, ya da %100'ün altında tutmuş oran çiftleri. Örnek sayısı düşük olanlarda oran güvenilir olmayabilir.",
     tum:   "Bültendeki tüm maçlar (geçmiş verisi olsun olmasın).",
-    canli: "Şu anda oynanan maçlar; dakika ve skor Nesine'nin canlı veri akışından alınır, en son başlayan üstte. Canlı KG/6+ Gol oranları bu bültende henüz sunulmuyor.",
+    canli: "Şu anda oynanan maçlar; dakika ve skor Nesine'nin canlı veri akışından alınır, en son başlayan üstte. KG/6+ Gol/İY-MS-KG oranları canlı sunulmadığı için maçın başlamasından hemen önceki son ön-maç değeridir — canlı güncellenmez, bilgi amaçlıdır, kupona eklenemez.",
   };
 
   /* ============== KUPON (kazanç hesaplayıcı) ============== */
@@ -857,12 +868,34 @@
   function liveMatchCard(m){
     const skorVar = m.skorEv != null && m.skorDep != null;
     const skorTxt = skorVar ? (m.skorEv + " - " + m.skorDep) : "–";
+    const tier = m.guven; // "kesin" | "olasi" | null
+    const oranVar = m.msKg != null || m.altUst6 != null || m.iymsKg != null;
 
-    const inner = '<div class="live-detail-note">🔴 Canlı · ' + escapeHtml(m.dakika) +
-      (skorVar ? " · Skor " + skorTxt : "") + '</div>' +
-      '<p class="section-note" style="margin:8px 4px 0;">Canlı KG/6+ Gol oranları bu bültende henüz sunulmuyor; sadece dakika ve skor gösteriliyor.</p>';
+    let inner = '<div class="live-detail-note">🔴 Canlı · ' + escapeHtml(m.dakika) +
+      (skorVar ? " · Skor " + skorTxt : "") + '</div>';
 
-    let html = '<div class="match-card' + (expandedIds.has(m.id) ? " expanded" : "") + '">';
+    if (tier){
+      const pct = Math.round(m.tutmaOrani * 100);
+      inner += '<div class="chip-row">' +
+        statChip(tier, "Güven", tier === "kesin" ? "Kesin" : "Olası") +
+        statChip(tier, "Kombinasyon", Math.floor(m.iymsKg) + " / " + Math.floor(m.altUst6)) +
+        statChip(tier + " pct", "Arşiv", m.tutma + "/" + m.toplam + " · %" + pct) +
+        '</div>';
+    }
+    if (oranVar){
+      inner += '<div class="chip-row">' +
+        oddChip("MS KG", m.msKg) +
+        oddChip("6+ Gol", m.altUst6) +
+        oddChip("İY/MS KG", m.iymsKg) +
+        '</div>';
+      inner += '<p class="section-note" style="margin:8px 4px 0;">Bu oranlar maçın başlamasından hemen önceki son ön-maç değeridir' +
+        (m.tahminZamani ? " (" + fmtKickoff(m.tahminZamani) + ")" : "") +
+        ', canlı güncellenmez. Bilgi amaçlıdır, kupona eklenemez.</p>';
+    } else {
+      inner += '<p class="section-note" style="margin:8px 4px 0;">Bu maçın başlamadan hemen önceki son oranı yakalanamadı; KG/6+ Gol tahmini yok.</p>';
+    }
+
+    let html = '<div class="match-card' + (tier ? " tier-" + tier : "") + (expandedIds.has(m.id) ? " expanded" : "") + '">';
     html += '<button type="button" class="card-head">' +
       '<div class="match-top"><span class="league">' + escapeHtml(m.lig) + '</span>' +
         '<span class="kickoff-wrap"><span class="live-badge"><span class="live-dot"></span>' + escapeHtml(m.dakika) + '</span></span></div>' +
@@ -880,7 +913,11 @@
   function tabMatches(tab){
     if (tab === "kesin") return allMatches.filter(m => m.guven === "kesin");
     if (tab === "olasi") return allMatches.filter(m => m.guven === "olasi");
-    if (tab === "canli") return liveMatches.slice();
+    if (tab === "canli"){
+      if (canliAltFiltre === "kesin") return liveMatches.filter(m => m.guven === "kesin");
+      if (canliAltFiltre === "olasi") return liveMatches.filter(m => m.guven === "olasi");
+      return liveMatches.slice();
+    }
     return allMatches.slice();
   }
 
@@ -920,6 +957,9 @@
     $("cntOlasi").textContent = allMatches.filter(m => m.guven === "olasi").length;
     $("cntTum").textContent = allMatches.length;
     $("cntCanli").textContent = liveMatches.length;
+    $("cntCanliTumu").textContent = liveMatches.length;
+    $("cntCanliKesin").textContent = liveMatches.filter(m => m.guven === "kesin").length;
+    $("cntCanliOlasi").textContent = liveMatches.filter(m => m.guven === "olasi").length;
   }
 
   $("list").addEventListener("click", (ev) => {
@@ -951,12 +991,26 @@
   ["kesin","olasi","tum","canli"].forEach(tab => {
     $("tab" + tab.charAt(0).toUpperCase() + tab.slice(1)).addEventListener("click", () => {
       currentTab = tab;
-      document.querySelectorAll(".tab-btn").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
+      document.querySelectorAll(".tabs:not(.sub-tabs) .tab-btn").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
+      $("canliSubTabs").hidden = (tab !== "canli");
+      if (tab === "canli"){
+        canliAltFiltre = "tumu";
+        document.querySelectorAll("#canliSubTabs .tab-btn").forEach(b => b.classList.toggle("active", b.dataset.subtab === "tumu"));
+      }
       currentSort = (tab === "tum") ? "time_asc" : (tab === "canli") ? "live_recent" : "rate_desc";
       sortSelectEl.value = currentSort;
       rebuildLeagueOptions();
       renderList();
     });
+  });
+
+  $("canliSubTabs").addEventListener("click", (ev) => {
+    const btn = ev.target.closest(".tab-btn");
+    if (!btn) return;
+    canliAltFiltre = btn.dataset.subtab;
+    document.querySelectorAll("#canliSubTabs .tab-btn").forEach(b => b.classList.toggle("active", b === btn));
+    rebuildLeagueOptions();
+    renderList();
   });
 
   /* ============== LOAD ============== */
