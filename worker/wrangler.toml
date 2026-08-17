@@ -1,0 +1,7 @@
+name = "kg-tahmin-bulten"
+main = "src/index.js"
+compatibility_date = "2026-08-17"
+account_id = "c8b3e790485df0cc8c4be0b2e8371216"
+
+[observability]
+enabled = true

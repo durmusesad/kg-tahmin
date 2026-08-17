@@ -499,7 +499,6 @@
     </div>
     <div class="top-actions">
       <button class="icon-btn" id="themeBtn">Koyu Tema</button>
-      <button class="icon-btn" id="refreshBtn">Yenile</button>
     </div>
   </div>
 
@@ -920,65 +919,36 @@
     renderKupon();
   }
 
+  /* ============== VERİ YÜKLEME ==============
+     Önce canlı Worker proxy'sinden (Nesine'den anlık çeker, edge'de 60sn
+     cache'ler) dener; erişilemezse GitHub Actions'ın periyodik yazdığı
+     statik dosyaya düşer. */
+  const LIVE_ENDPOINT = "https://kg-tahmin-bulten.durmusesad568.workers.dev";
+  const FALLBACK_ENDPOINT = "data/odds.json";
+
+  function fetchJson(url){
+    return fetch(url, {cache: "no-store"}).then(r => {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    });
+  }
+
   function load(){
-    fetch("data/odds.json", {cache: "no-store"})
-      .then(r => { if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    fetchJson(LIVE_ENDPOINT)
       .then(render)
+      .catch(() => fetchJson(FALLBACK_ENDPOINT).then(render))
       .catch(() => {
         $("emptyNote").textContent = "Bülten yüklenemedi.";
         $("emptyNote").style.display = "block";
       });
   }
 
-  /* ============== MANUEL YENİLE (1 dk. sınırlı) ============== */
-  const REFRESH_COOLDOWN_S = 60;
-  const REFRESH_KEY = "kgtahmin-last-refresh";
-  let refreshTimer = null;
-
-  function runRefreshCountdown(remaining){
-    const btn = $("refreshBtn");
-    clearInterval(refreshTimer);
-    btn.disabled = true;
-    const tick = () => {
-      if (remaining <= 0){
-        btn.disabled = false;
-        btn.textContent = "Yenile";
-        clearInterval(refreshTimer);
-        return;
-      }
-      btn.textContent = "Yenile (" + remaining + "sn)";
-      remaining--;
-    };
-    tick();
-    refreshTimer = setInterval(tick, 1000);
-  }
-
-  function manualRefresh(){
-    const last = parseInt(localStorage.getItem(REFRESH_KEY) || "0", 10);
-    const elapsed = (Date.now() - last) / 1000;
-    if (elapsed < REFRESH_COOLDOWN_S) return; // buton zaten pasif olmalı, ekstra güvence
-    localStorage.setItem(REFRESH_KEY, String(Date.now()));
-    load();
-    runRefreshCountdown(REFRESH_COOLDOWN_S);
-  }
-
-  function initRefreshCooldown(){
-    const last = parseInt(localStorage.getItem(REFRESH_KEY) || "0", 10);
-    const elapsed = (Date.now() - last) / 1000;
-    if (elapsed < REFRESH_COOLDOWN_S){
-      runRefreshCountdown(Math.ceil(REFRESH_COOLDOWN_S - elapsed));
-    }
-  }
-
-  $("refreshBtn").addEventListener("click", manualRefresh);
-  initRefreshCooldown();
-
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") load();
   });
 
   load();
-  setInterval(load, 3 * 60 * 1000);
+  setInterval(load, 60 * 1000);
 })();
 </script>
 
