@@ -996,6 +996,13 @@
 
   function loadLiveMatches(){
     return fetchJson(LIVE_CANLI_ENDPOINT)
+      .then(data => {
+        // Worker /canli rotasını henüz sunmuyorsa (eski deploy) ön-maç şeması döner;
+        // "dakika" alanı yoksa bunu algılayıp statik dosyaya düş.
+        const ornek = (data.maclar || [])[0];
+        if (ornek && !("dakika" in ornek)) throw new Error("Beklenmeyen canlı veri şekli");
+        return data;
+      })
       .catch(() => fetchJson(FALLBACK_CANLI_ENDPOINT))
       .then(data => { liveMatches = (data.maclar || []).map(m => Object.assign({canli: true}, m)); })
       .catch(() => { liveMatches = []; });

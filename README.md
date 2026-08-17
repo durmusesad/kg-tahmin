@@ -13,9 +13,10 @@ Canlı site: `https://drms02.github.io/kg-tahmin/` (GitHub Pages'te yayınlandı
 - `.github/workflows/update-and-deploy.yml` bu script'i **her 10 dakikada bir**
   (ve her `main`'e push'ta) otomatik çalıştırır, veriyi commit'ler ve siteyi
   GitHub Pages'e deploy eder.
-- `index.html` tamamen statiktir; `data/odds.json` ve `data/live.json`'ı
-  okuyup listeler, sayfa görünür olduğunda ve her 3 dakikada bir kendini
-  yeniler. Sunucu/backend yoktur.
+- `index.html` tamamen statiktir; önce `worker/` altındaki Cloudflare Worker
+  proxy'sinden (bkz. aşağıdaki bölüm) taze veri çekmeyi dener, erişilemezse
+  `data/odds.json` / `data/live.json`'a düşer. Sayfa görünür olduğunda ve her
+  1 dakikada bir kendini yeniler. Sunucu/backend yoktur (Worker hariç).
 
 ## Kupon (kazanç hesaplayıcı)
 
@@ -81,9 +82,10 @@ dakika ve güncel skorla birlikte listeler (en son başlayan üstte).
   görüldü (yalnızca farklı, doğrulanmamış market kodlarıyla sınırlı bir
   canlı bahis menüsü var). Bu yüzden canlı sekmesi şimdilik yalnızca
   dakika + skor gösterir, tahmin/kupon sistemine dahil değildir.
-- Canlı verinin tazeliği, `update-and-deploy.yml`'deki genel **10 dakikalık**
-  cron döngüsüyle sınırlıdır (Nesine'nin canlı API'leri CORS'a kapalı
-  olduğundan tarayıcıdan doğrudan çekilemiyor).
+- Aynı mantık `worker/src/index.js`'in `/canli` rotasında da JS'e taşınmıştır;
+  `index.html` önce oradan (CORS'a açık, ~30sn edge cache) taze veri çekmeyi
+  dener, erişilemezse `data/live.json`'a (GitHub Actions'ın periyodik yazdığı,
+  dakikalarca gecikmeli olabilen dosya) düşer.
 
 ## Market kodları (MTID)
 
@@ -100,11 +102,34 @@ nadir olduğu) analiz edilerek çıkarıldı:
 Nesine site yapısını değiştirirse `scraper.py` içindeki bu eşleşmelerin
 güncellenmesi gerekebilir.
 
+## Cloudflare Worker (canlı proxy)
+
+Nesine'nin API'leri tarayıcıdan doğrudan erişime (CORS) kapalı; bu yüzden
+GitHub Actions'ın periyodik yazdığı statik dosyalar tek başına dakikalarca
+gecikmeli kalıyordu. `worker/src/index.js`, `scraper.py`'daki bülten çekme/
+eşleştirme mantığının bir Cloudflare Worker portudur:
+
+- `GET /` → ön-maç bülteni (`data/odds.json` ile aynı şema), 60sn edge cache.
+- `GET /canli` → canlı maçlar (`data/live.json` ile aynı şema), 30sn edge cache.
+
+`index.html` her zaman önce bu Worker'ı dener, erişilemezse statik dosyalara
+düşer (bkz. yukarıdaki bölümler). Deploy için:
+
+```bash
+cd worker
+npx wrangler login        # bir kereye mahsus, Cloudflare hesabına bağlar
+npx wrangler deploy
+```
+
+`wrangler.toml` içindeki `account_id` ve worker adı (`kg-tahmin-bulten`)
+sabit; `index.html`'deki `LIVE_ENDPOINT` sabiti bu worker'ın URL'siyle
+eşleşmelidir.
+
 ## Lokalde çalıştırma
 
 ```bash
 pip install -r requirements.txt
-python scraper.py        # data/odds.json'ı üretir
+python scraper.py        # data/odds.json ve data/live.json'ı üretir
 python -m http.server     # sonra localhost'ta index.html'i aç
 ```
 
