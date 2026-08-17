@@ -174,6 +174,7 @@
   }
   .tab-btn[data-tab="kesin"].active{color:var(--tile-dark);}
   .tab-btn[data-tab="olasi"].active{color:var(--brass-dark);}
+  .tab-btn[data-tab="canli"].active{color:var(--seal);}
 
   .search-row{margin-bottom:8px;}
   .search-row input{
@@ -266,6 +267,33 @@
   }
   .teams{
     font-weight:700; font-size:15px; line-height:1.3;
+  }
+  .live-badge{
+    display:inline-flex; align-items:center; gap:5px; flex:none;
+    font-size:12px; font-weight:800;
+    color:var(--seal);
+    background:color-mix(in srgb, var(--seal) 14%, var(--parchment-2));
+    padding:2px 9px; border-radius:999px;
+    font-variant-numeric:tabular-nums;
+  }
+  .live-dot{
+    width:7px; height:7px; border-radius:999px; flex:none;
+    background:var(--seal);
+    animation:liveDotPulse 1.4s ease-in-out infinite;
+  }
+  @keyframes liveDotPulse{
+    0%,100%{opacity:1; transform:scale(1);}
+    50%{opacity:.4; transform:scale(.75);}
+  }
+  .live-score{
+    font-weight:800; color:var(--seal);
+    font-variant-numeric:tabular-nums;
+  }
+  .live-detail-note{
+    font-size:13px; font-weight:700;
+    background:var(--parchment-2);
+    border-radius:10px;
+    padding:9px 10px;
   }
   .chevron{
     flex:none;
@@ -517,6 +545,7 @@
         <button class="tab-btn active" id="tabKesin" data-tab="kesin">Kesin<span class="cnt" id="cntKesin">0</span></button>
         <button class="tab-btn" id="tabOlasi" data-tab="olasi">Olası<span class="cnt" id="cntOlasi">0</span></button>
         <button class="tab-btn" id="tabTum" data-tab="tum">Tüm Bülten<span class="cnt" id="cntTum">0</span></button>
+        <button class="tab-btn" id="tabCanli" data-tab="canli">Canlı<span class="cnt" id="cntCanli">0</span></button>
       </div>
       <div class="search-row">
         <input type="search" id="searchInput" placeholder="Takım veya lig ara…" autocomplete="off">
@@ -604,6 +633,7 @@
 
   /* ============== STATE ============== */
   let allMatches = [];
+  let liveMatches = [];
   let currentTab = "kesin";
   let currentLeague = "";
   let currentSort = "rate_desc";
@@ -620,6 +650,7 @@
     gol6_asc:   { label: "6+ Gol Oranı (Düşük → Yüksek)", cmp: (a,b) => (a.altUst6 ?? 999) - (b.altUst6 ?? 999) },
     iyms_desc:  { label: "İY/MS KG Oranı (Yüksek → Düşük)", cmp: (a,b) => (b.iymsKg ?? -1) - (a.iymsKg ?? -1) },
     iyms_asc:   { label: "İY/MS KG Oranı (Düşük → Yüksek)", cmp: (a,b) => (a.iymsKg ?? 999) - (b.iymsKg ?? 999) },
+    live_recent: { label: "Yeni Başlayanlar (Yeniden Eskiye)", cmp: (a,b) => (b.macZamani || "").localeCompare(a.macZamani || "") },
   };
   const sortSelectEl = $("sortSelect");
   Object.keys(SORTS).forEach(key => {
@@ -634,6 +665,7 @@
     kesin: "Geçmişte en az 3 kez denenmiş ve hepsinde (%100) karşılıklı gol çıkmış oran çiftleri.",
     olasi: "Geçmişte görülmüş ama 3 örnekten az, ya da %100'ün altında tutmuş oran çiftleri. Örnek sayısı düşük olanlarda oran güvenilir olmayabilir.",
     tum:   "Bültendeki tüm maçlar (geçmiş verisi olsun olmasın).",
+    canli: "Şu anda oynanan maçlar; dakika ve skor Nesine'nin canlı veri akışından alınır, en son başlayan üstte. Canlı KG/6+ Gol oranları bu bültende henüz sunulmuyor.",
   };
 
   /* ============== KUPON (kazanç hesaplayıcı) ============== */
@@ -785,6 +817,8 @@
   }
 
   function matchCard(m){
+    if (m.canli) return liveMatchCard(m);
+
     const tier = m.guven; // "kesin" | "olasi" | null
     const inKupon = isInKupon(m.id);
 
@@ -820,10 +854,33 @@
     return html;
   }
 
+  function liveMatchCard(m){
+    const skorVar = m.skorEv != null && m.skorDep != null;
+    const skorTxt = skorVar ? (m.skorEv + " - " + m.skorDep) : "–";
+
+    const inner = '<div class="live-detail-note">🔴 Canlı · ' + escapeHtml(m.dakika) +
+      (skorVar ? " · Skor " + skorTxt : "") + '</div>' +
+      '<p class="section-note" style="margin:8px 4px 0;">Canlı KG/6+ Gol oranları bu bültende henüz sunulmuyor; sadece dakika ve skor gösteriliyor.</p>';
+
+    let html = '<div class="match-card' + (expandedIds.has(m.id) ? " expanded" : "") + '">';
+    html += '<button type="button" class="card-head">' +
+      '<div class="match-top"><span class="league">' + escapeHtml(m.lig) + '</span>' +
+        '<span class="kickoff-wrap"><span class="live-badge"><span class="live-dot"></span>' + escapeHtml(m.dakika) + '</span></span></div>' +
+      '<div class="teams-row"><span class="teams">' + escapeHtml(m.evSahibi) +
+        (skorVar ? ' <span class="live-score">' + skorTxt + '</span> ' : ' — ') +
+        escapeHtml(m.deplasman) + '</span>' +
+        '<span class="chevron">▾</span></div>' +
+      '</button>';
+    html += '<div class="details"><div class="details-inner"><div class="details-content">' + inner + '</div></div></div>';
+    html += '</div>';
+    return html;
+  }
+
   /* ============== FILTER / SORT / RENDER ============== */
   function tabMatches(tab){
     if (tab === "kesin") return allMatches.filter(m => m.guven === "kesin");
     if (tab === "olasi") return allMatches.filter(m => m.guven === "olasi");
+    if (tab === "canli") return liveMatches.slice();
     return allMatches.slice();
   }
 
@@ -862,6 +919,7 @@
     $("cntKesin").textContent = allMatches.filter(m => m.guven === "kesin").length;
     $("cntOlasi").textContent = allMatches.filter(m => m.guven === "olasi").length;
     $("cntTum").textContent = allMatches.length;
+    $("cntCanli").textContent = liveMatches.length;
   }
 
   $("list").addEventListener("click", (ev) => {
@@ -890,11 +948,11 @@
     renderList();
   });
 
-  ["kesin","olasi","tum"].forEach(tab => {
+  ["kesin","olasi","tum","canli"].forEach(tab => {
     $("tab" + tab.charAt(0).toUpperCase() + tab.slice(1)).addEventListener("click", () => {
       currentTab = tab;
       document.querySelectorAll(".tab-btn").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
-      currentSort = (tab === "tum") ? "time_asc" : "rate_desc";
+      currentSort = (tab === "tum") ? "time_asc" : (tab === "canli") ? "live_recent" : "rate_desc";
       sortSelectEl.value = currentSort;
       rebuildLeagueOptions();
       renderList();
@@ -920,11 +978,14 @@
   }
 
   /* ============== VERİ YÜKLEME ==============
-     Önce canlı Worker proxy'sinden (Nesine'den anlık çeker, edge'de 60sn
-     cache'ler) dener; erişilemezse GitHub Actions'ın periyodik yazdığı
-     statik dosyaya düşer. */
+     Önce canlı Worker proxy'sinden (Nesine'den anlık çeker, edge'de cache'ler)
+     dener; erişilemezse GitHub Actions'ın periyodik yazdığı statik dosyaya düşer.
+     Canlı maçlar için de aynı Worker'ın /canli rotası + data/live.json fallback'i
+     kullanılır. */
   const LIVE_ENDPOINT = "https://kg-tahmin-bulten.durmusesad568.workers.dev";
+  const LIVE_CANLI_ENDPOINT = LIVE_ENDPOINT + "/canli";
   const FALLBACK_ENDPOINT = "data/odds.json";
+  const FALLBACK_CANLI_ENDPOINT = "data/live.json";
 
   function fetchJson(url){
     return fetch(url, {cache: "no-store"}).then(r => {
@@ -933,10 +994,19 @@
     });
   }
 
+  function loadLiveMatches(){
+    return fetchJson(LIVE_CANLI_ENDPOINT)
+      .catch(() => fetchJson(FALLBACK_CANLI_ENDPOINT))
+      .then(data => { liveMatches = (data.maclar || []).map(m => Object.assign({canli: true}, m)); })
+      .catch(() => { liveMatches = []; });
+  }
+
   function load(){
-    fetchJson(LIVE_ENDPOINT)
-      .then(render)
-      .catch(() => fetchJson(FALLBACK_ENDPOINT).then(render))
+    Promise.all([
+      fetchJson(LIVE_ENDPOINT).catch(() => fetchJson(FALLBACK_ENDPOINT)),
+      loadLiveMatches(),
+    ])
+      .then(([data]) => render(data))
       .catch(() => {
         $("emptyNote").textContent = "Bülten yüklenemedi.";
         $("emptyNote").style.display = "block";

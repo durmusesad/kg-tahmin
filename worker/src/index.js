@@ -6,6 +6,8 @@
 import gecmisData from "../../data/historical_stats.json";
 
 const BULTEN_URL = "https://cdnbulten.nesine.com/api/bulten/getprebultenfull";
+const LIVE_BULTEN_URL = "https://bulten.nesine.com/api/bulten/getlivebultenv3?eventVersion=0&oddVersion=0";
+const LIVE_SCORE_URL = "https://ls.nesine.com/api/v2/Bet/GetLiveBetResultsWithVersion?v=0";
 const HEADERS = {
   "User-Agent":
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
@@ -129,6 +131,110 @@ function maclariIsle(veri) {
   return maclar;
 }
 
+async function canliBultenCek() {
+  const resp = await fetch(LIVE_BULTEN_URL, { headers: HEADERS });
+  if (!resp.ok) throw new Error("HTTP " + resp.status);
+  return resp.json();
+}
+
+async function canliSkorCek() {
+  const resp = await fetch(LIVE_SCORE_URL, { headers: HEADERS });
+  if (!resp.ok) throw new Error("HTTP " + resp.status);
+  return resp.json();
+}
+
+// Nesine'nin MDT alanındaki devre başlangıç/bitiş zaman damgalarını T koduna göre eşler:
+// 1=ilk yarı başlangıcı, 2=devre arası başlangıcı, 3=ikinci yarı başlangıcı, 4=maç sonu.
+function mdtZamanlari(kayit) {
+  const zamanlar = {};
+  for (const m of kayit.MDT || []) {
+    if (!m.value) continue;
+    const d = new Date(m.value);
+    if (!isNaN(d.getTime())) zamanlar[m.T] = d;
+  }
+  return zamanlar;
+}
+
+// Canlı skor kaydından oynanan dakikayı (veya devre arası/maç sonu gibi durumu)
+// çıkarır. Maç henüz başlamamışsa veya bitmişse null döner.
+function dakikaHesapla(kayit, simdiMs) {
+  const st = (kayit.ST || "").trim();
+  if (st === "MS") return null;
+  const z = mdtZamanlari(kayit);
+  const t1 = z[1], t2 = z[2], t3 = z[3], t4 = z[4];
+
+  if (t4) return null;
+  if (t3) {
+    const dakika = 45 + Math.floor((simdiMs - t3.getTime()) / 60000) + 1;
+    return Math.min(dakika, 120) + "'";
+  }
+  if (t2) return "Devre Arası";
+  if (t1) {
+    const dakika = Math.floor((simdiMs - t1.getTime()) / 60000) + 1;
+    return Math.min(dakika, 45) + "'";
+  }
+  if (st && st !== "Başlamadı.") return st; // futbol dışı / standart olmayan durum metni
+  return null;
+}
+
+function canliSkorHesapla(kayit) {
+  let toplamEv = 0, toplamDep = 0, goruldu = false;
+  for (const es of kayit.ES || []) {
+    if (es.T === 1 || es.T === 2 || es.T === 3) {
+      const h = Number(es.H ?? 0), a = Number(es.A ?? 0);
+      if (Number.isFinite(h) && Number.isFinite(a)) {
+        toplamEv += h; toplamDep += a; goruldu = true;
+      }
+    }
+  }
+  return goruldu ? [toplamEv, toplamDep] : [null, null];
+}
+
+function canliMaclariIsle(canliBultenVerisi, canliSkorVerisi) {
+  const sg = canliBultenVerisi.sg || {};
+  const etkinlikler = sg.EA || [];
+  const ligler = sg.LA || [];
+  const simdiMs = Date.now();
+
+  const skorMap = new Map();
+  for (const kayit of (canliSkorVerisi && canliSkorVerisi.d) || []) {
+    const c = kayit.C ?? kayit.NID;
+    if (c != null) skorMap.set(c, kayit);
+  }
+
+  const maclar = [];
+  for (const e of etkinlikler) {
+    if (e.GT !== 1) continue; // sadece futbol
+
+    const skorKayit = skorMap.get(e.C);
+    if (!skorKayit) continue;
+
+    const dakika = dakikaHesapla(skorKayit, simdiMs);
+    if (dakika == null) continue; // henüz başlamamış ya da bitmiş
+
+    const evSahibi = String(e.HN ?? "").trim();
+    const deplasman = String(e.AN ?? "").trim();
+    if (!evSahibi || !deplasman) continue;
+
+    const macZamaniDate = esdToDate(e.ESD);
+    const [skorEv, skorDep] = canliSkorHesapla(skorKayit);
+
+    maclar.push({
+      id: String(e.C ?? ""),
+      lig: ligAdiBul(ligler, e.LC),
+      evSahibi,
+      deplasman,
+      macZamani: macZamaniDate ? toIstanbulIso(macZamaniDate) : null,
+      dakika,
+      skorEv,
+      skorDep,
+    });
+  }
+
+  maclar.sort((a, b) => (b.macZamani || "").localeCompare(a.macZamani || "")); // yeni başlayan üstte
+  return maclar;
+}
+
 function jsonResponse(obj, status, extraHeaders) {
   return new Response(JSON.stringify(obj), {
     status: status || 200,
@@ -146,8 +252,14 @@ export default {
       return new Response(null, { headers: CORS_HEADERS });
     }
 
+    const canliMi = new URL(request.url).pathname === "/canli";
+    const cacheSaniye = canliMi ? 30 : 60; // canlı maçlarda dakika/skor daha sık değiştiği için daha kısa TTL
+
     const cache = caches.default;
-    const cacheKey = new Request(new URL(request.url).origin + "/kg-tahmin-odds", request);
+    const cacheKey = new Request(
+      new URL(request.url).origin + (canliMi ? "/kg-tahmin-canli" : "/kg-tahmin-odds"),
+      request
+    );
 
     const cached = await cache.match(cacheKey);
     if (cached) {
@@ -155,24 +267,25 @@ export default {
       return jsonResponse(JSON.parse(body), 200, { "X-Cache": "HIT" });
     }
 
-    let maclar = [];
+    let cikti;
     try {
-      const veri = await bultenCek();
-      maclar = maclariIsle(veri);
+      if (canliMi) {
+        const [canliBulten, canliSkorVerisi] = await Promise.all([canliBultenCek(), canliSkorCek()]);
+        const maclar = canliMaclariIsle(canliBulten, canliSkorVerisi);
+        cikti = { guncellemeZamani: toIstanbulIso(new Date()), macSayisi: maclar.length, maclar };
+      } else {
+        const veri = await bultenCek();
+        const maclar = maclariIsle(veri);
+        cikti = { guncellemeZamani: toIstanbulIso(new Date()), macSayisi: maclar.length, maclar };
+      }
     } catch (err) {
       return jsonResponse({ hata: String(err && err.message ? err.message : err) }, 502);
     }
 
-    const cikti = {
-      guncellemeZamani: toIstanbulIso(new Date()),
-      macSayisi: maclar.length,
-      maclar,
-    };
-
     const response = new Response(JSON.stringify(cikti), {
       headers: {
         "Content-Type": "application/json; charset=utf-8",
-        "Cache-Control": "public, max-age=60",
+        "Cache-Control": "public, max-age=" + cacheSaniye,
         ...CORS_HEADERS,
       },
     });

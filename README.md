@@ -13,8 +13,9 @@ Canlı site: `https://drms02.github.io/kg-tahmin/` (GitHub Pages'te yayınlandı
 - `.github/workflows/update-and-deploy.yml` bu script'i **her 10 dakikada bir**
   (ve her `main`'e push'ta) otomatik çalıştırır, veriyi commit'ler ve siteyi
   GitHub Pages'e deploy eder.
-- `index.html` tamamen statiktir; `data/odds.json`'ı okuyup listeler, sayfa
-  görünür olduğunda ve her 3 dakikada bir kendini yeniler. Sunucu/backend yoktur.
+- `index.html` tamamen statiktir; `data/odds.json` ve `data/live.json`'ı
+  okuyup listeler, sayfa görünür olduğunda ve her 3 dakikada bir kendini
+  yeniler. Sunucu/backend yoktur.
 
 ## Kupon (kazanç hesaplayıcı)
 
@@ -62,6 +63,27 @@ oranı güvenilir olmayabilir.
 `data/historical_stats.json` statik bir anlık görüntüdür; Excel tablosu
 güncellendikçe yeniden üretilip commit'lenmesi gerekir (otomatik değildir,
 çünkü OneDrive'a kimlik doğrulamalı erişim CI'da yoktur).
+
+## Canlı Maçlar
+
+Site ayrı bir **Canlı** sekmesinde, o an oynanmakta olan maçları oynanan
+dakika ve güncel skorla birlikte listeler (en son başlayan üstte).
+
+- `scraper.py`, `getlivebultenv3` uç noktasından canlı futbol maçlarını,
+  `ls.nesine.com/.../GetLiveBetResultsWithVersion` uç noktasından da
+  durum/skor verisini çekip maç kimliğine (`C`) göre eşleştirir, sonucu
+  `data/live.json`'a yazar.
+- Dakika, Nesine'nin gönderdiği devre başlangıç zaman damgalarından
+  (`MDT`: ilk yarı/devre arası/ikinci yarı/maç sonu) hesaplanır; skor ise
+  devre bazlı gol sayılarının (`ES`) toplamıdır.
+- Canlı bültende **KG / 6+ Gol / İY-MS KG oranları henüz gösterilmiyor** —
+  incelemede bu marketlerin (MTID 38/43/801) in-play akışta hiç sunulmadığı
+  görüldü (yalnızca farklı, doğrulanmamış market kodlarıyla sınırlı bir
+  canlı bahis menüsü var). Bu yüzden canlı sekmesi şimdilik yalnızca
+  dakika + skor gösterir, tahmin/kupon sistemine dahil değildir.
+- Canlı verinin tazeliği, `update-and-deploy.yml`'deki genel **10 dakikalık**
+  cron döngüsüyle sınırlıdır (Nesine'nin canlı API'leri CORS'a kapalı
+  olduğundan tarayıcıdan doğrudan çekilemiyor).
 
 ## Market kodları (MTID)
 
