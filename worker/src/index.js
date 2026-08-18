@@ -54,6 +54,25 @@ function oranBul(maListesi, mtid, sov, n) {
   return null;
 }
 
+// oranBul'un canlı-maç versiyonu: O==1.0'ı "askıya alınmış/geçersiz" saymaz,
+// çünkü canlıda bir taraf zaten kesin öndeyse (ör. 3 farkla) Nesine o seçeneği
+// gerçekten 1.00 fiyatlar — bu geçerli bir "kesinleşmiş" fiyattır, pre-match'te
+// hemen hemen hiç görülmeyen ama canlıda normal olan bir durum. Sadece market/
+// seçenek bültende hiç yoksa ya da sayısal değilse null döner.
+function canliOranBul(maListesi, mtid, sov, n) {
+  for (const market of maListesi || []) {
+    if (market.MTID !== mtid) continue;
+    if (Number(market.SOV ?? 0) !== sov) continue;
+    for (const opsiyon of market.OCA || []) {
+      if (opsiyon.N === n) {
+        const oran = Number(opsiyon.O ?? 0);
+        return Number.isFinite(oran) && oran >= 1.0 ? oran : null;
+      }
+    }
+  }
+  return null;
+}
+
 // Türkiye 2016'dan beri kalıcı UTC+3'te (DST yok), Python'daki
 // zoneinfo("Europe/Istanbul") ile eşdeğer sabit ofset kullanılabilir.
 function toIstanbulIso(date) {
@@ -379,6 +398,31 @@ async function sinyalMacinaEslestir(homeMack, awayMack) {
   return null;
 }
 
+// Kırmızı bot taktiklerinin çoğu (TA, T1, TC, TH, T3, TB_OVER vb.) "MS Toplam
+// Gol Alt/Üst" marketini kullanıyor, ama bunun canlı bültendeki hangi MTID'ye
+// karşılık geldiğini henüz güvenle çözemedik (devre arası testinde "tam maç"
+// gibi davranan tek bir aday çıkmadı — araştırma sürüyor). Şimdilik SADECE
+// aşağıdaki iki taktik için gerçek market kontrolü yapılıyor; diğerleri için
+// sadece "maç Nesine'de var mı" seviyesinde kalınıyor (oranDurumu: null).
+//   - TB            → Maç Sonucu (MTID 53, SOV 0.0) — hangi tarafın önde
+//                      olduğuna göre N=1 (ev) ya da N=3 (deplasman) kontrol edilir.
+//   - TH_IY / T_TEMPO_IY15 → İY 1.5 Üst (MTID 70, SOV 1.5, N=2) — devre arası
+//                      testinde bu marketin ilk yarıya özel olduğu (devrede
+//                      kayboluyor) doğrulandı.
+function taktikOraniniKontrolEt(taktik, ma, skorEv, skorDep) {
+  if (taktik === "TB") {
+    if (skorEv == null || skorDep == null || skorEv === skorDep) return null; // beraberlikte kazanan belli değil, kontrol edilemez
+    const n = skorEv > skorDep ? 1 : 3; // 1=ev kazanır, 3=deplasman kazanır (Maç Sonucu N kodu)
+    const oran = canliOranBul(ma, 53, 0.0, n);
+    return { market: "Maç Sonucu", pazarAcik: oran != null, oran };
+  }
+  if (taktik === "TH_IY" || taktik === "T_TEMPO_IY15") {
+    const oran = canliOranBul(ma, 70, 1.5, 2); // N=2 = Üst
+    return { market: "İY 1.5 Üst", pazarAcik: oran != null, oran };
+  }
+  return null; // bu taktik için henüz market-özel kontrol yok
+}
+
 async function sinyalIsle(request, env) {
   const anahtar = request.headers.get("X-Sinyal-Key");
   if (!env.SINYAL_ANAHTARI || anahtar !== env.SINYAL_ANAHTARI) {
@@ -407,6 +451,12 @@ async function sinyalIsle(request, env) {
     return jsonResponse({ eslesti: false });
   }
 
+  const oranDurumu = taktikOraniniKontrolEt(taktik, eslesme.etkinlik.MA || [], skorEv, skorDep);
+  if (oranDurumu && !oranDurumu.pazarAcik) {
+    // Market-özel kontrol yapılabilen bir taktik ve oran kapalı/yok — sinyal reddedilir.
+    return jsonResponse({ eslesti: true, oranAcik: false, market: oranDurumu.market });
+  }
+
   const kayit = {
     taktik,
     tahmin: tahmin ?? null,
@@ -418,6 +468,7 @@ async function sinyalIsle(request, env) {
     macMack: `${home} - ${away}`,
     ligMack: lig ?? null,
     eslesmeSkoru: eslesme.skor,
+    oranDurumu,
     gonderilisZamani: toIstanbulIso(new Date()),
   };
 
@@ -425,7 +476,7 @@ async function sinyalIsle(request, env) {
     await env.KG_SNAPSHOTS.put("sinyal:" + nesineMacId, JSON.stringify(kayit), { expirationTtl: 4 * 3600 });
   }
 
-  return jsonResponse({ eslesti: true, nesineMacId, eslesmeSkoru: eslesme.skor });
+  return jsonResponse({ eslesti: true, oranAcik: oranDurumu ? oranDurumu.pazarAcik : null, nesineMacId, eslesmeSkoru: eslesme.skor });
 }
 
 function jsonResponse(obj, status, extraHeaders) {

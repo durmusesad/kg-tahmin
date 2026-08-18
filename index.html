@@ -909,6 +909,7 @@
         '<div class="kirmizi-sinyal-detay">' +
           (s.dk != null ? "Sinyal dakikası: " + escapeHtml(String(s.dk)) + "'" : "") +
           (s.minOran != null ? " · Min. oran: " + escapeHtml(String(s.minOran)) : "") +
+          (s.oranDurumu && s.oranDurumu.pazarAcik ? " · Nesine'de doğrulandı (" + escapeHtml(s.oranDurumu.market) + ": " + escapeHtml(String(s.oranDurumu.oran)) + ")" : "") +
         '</div>' +
       '</div>';
     }
@@ -931,7 +932,7 @@
         (m.tahminZamani ? " (" + fmtKickoff(m.tahminZamani) + ")" : "") +
         ', canlı güncellenmez. Bilgi amaçlıdır, kupona eklenemez.</p>';
     } else {
-      inner += '<p class="section-note" style="margin:8px 4px 0;">Bu maçın başlamadan hemen önceki son oranı yakalanamadı; KG/6+ Gol tahmini yok.</p>';
+      inner += '<p class="section-note" style="margin:8px 4px 0;">Bu maç için Nesine\'de KG/6+ Gol/İY-MS-KG oranı hiç açılmamış — genellikle düşük profilli/alt lig maçlarında görülür, sistemsel bir sorun değildir.</p>';
     }
 
     let html = '<div class="match-card' + (tier ? " tier-" + tier : "") + (m.kirmiziSinyal ? " tier-kirmizi" : "") + (expandedIds.has(m.id) ? " expanded" : "") + '">';
