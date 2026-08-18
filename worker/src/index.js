@@ -398,17 +398,23 @@ async function sinyalMacinaEslestir(homeMack, awayMack) {
   return null;
 }
 
-// Kırmızı bot taktiklerinin çoğu (TA, T1, TC, TH, T3, TB_OVER vb.) "MS Toplam
-// Gol Alt/Üst" marketini kullanıyor, ama bunun canlı bültendeki hangi MTID'ye
-// karşılık geldiğini henüz güvenle çözemedik (devre arası testinde "tam maç"
-// gibi davranan tek bir aday çıkmadı — araştırma sürüyor). Şimdilik SADECE
-// aşağıdaki iki taktik için gerçek market kontrolü yapılıyor; diğerleri için
-// sadece "maç Nesine'de var mı" seviyesinde kalınıyor (oranDurumu: null).
-//   - TB            → Maç Sonucu (MTID 53, SOV 0.0) — hangi tarafın önde
-//                      olduğuna göre N=1 (ev) ya da N=3 (deplasman) kontrol edilir.
-//   - TH_IY / T_TEMPO_IY15 → İY 1.5 Üst (MTID 70, SOV 1.5, N=2) — devre arası
-//                      testinde bu marketin ilk yarıya özel olduğu (devrede
-//                      kayboluyor) doğrulandı.
+// MTID eşlemeleri, Nesine'nin canlı bahis sitesindeki ETİKETLİ market
+// panelleriyle (nesine.com/iddaa → bir canlı maçın "Genel"/"Alt-Üst"
+// sekmeleri) birebir oran karşılaştırması yapılarak doğrulandı — istatistiksel
+// tahmin değil, doğrudan görsel kaynak eşleştirmesi:
+//   MTID=53  SOV=0.0  → "Maç Sonucu" (1-X-2)
+//   MTID=208 SOV=0.5  → "MAÇ SONUCU ALT/ÜST" bölümünde "0,5 Gol Alt/Üst" (tam maç)
+//   MTID=66  SOV=1.5  → "MAÇ SONUCU ALT/ÜST" bölümünde "1,5 Gol Alt/Üst" (tam maç)
+//   MTID=67  SOV=2.5  → "MAÇ SONUCU ALT/ÜST" bölümünde "2,5 Gol Alt/Üst" (tam maç)
+//   MTID=69  SOV=0.5  → "YARI ALT/ÜST" bölümünde "1. Yarı 0,5 Alt/Üst"
+//   MTID=70  SOV=1.5  → "YARI ALT/ÜST" bölümünde "1. Yarı 1,5 Alt/Üst"
+// Tüm bu marketlerde N=1 Alt, N=2 Üst. 3.5/4.5 Gol çizgileri (TA/T1/T3/
+// T_ERKEN_MS_35_ALT/TA_CASCADE/T3_CASCADE/T_CIFT_YUK için gerekli) canlı
+// bültende henüz doğrulanamadı — o taktikler için sadece "maç Nesine'de var
+// mı" seviyesinde kalınıyor (oranDurumu: null), araştırma sürüyor.
+const MS_ALT_UST_MTID = { 0.5: 208, 1.5: 66, 2.5: 67 };
+const IY_ALT_UST_MTID = { 0.5: 69, 1.5: 70 };
+
 function taktikOraniniKontrolEt(taktik, ma, skorEv, skorDep) {
   if (taktik === "TB") {
     if (skorEv == null || skorDep == null || skorEv === skorDep) return null; // beraberlikte kazanan belli değil, kontrol edilemez
@@ -416,11 +422,32 @@ function taktikOraniniKontrolEt(taktik, ma, skorEv, skorDep) {
     const oran = canliOranBul(ma, 53, 0.0, n);
     return { market: "Maç Sonucu", pazarAcik: oran != null, oran };
   }
-  if (taktik === "TH_IY" || taktik === "T_TEMPO_IY15") {
-    const oran = canliOranBul(ma, 70, 1.5, 2); // N=2 = Üst
-    return { market: "İY 1.5 Üst", pazarAcik: oran != null, oran };
+
+  // MS (tam maç) Toplam Gol Üst taktikleri — 0.5/1.5/2.5 çizgileri doğrulandı.
+  const MS_UST_HARITASI = {
+    TH: 1.5, TB_OVER: 1.5,
+    TC: 2.5, TC_CASCADE: 2.5, T_IY11: 2.5,
+  };
+  if (taktik in MS_UST_HARITASI) {
+    const cizgi = MS_UST_HARITASI[taktik];
+    const mtid = MS_ALT_UST_MTID[cizgi];
+    const oran = canliOranBul(ma, mtid, cizgi, 2); // N=2 = Üst
+    return { market: `MS ${cizgi} Üst`, pazarAcik: oran != null, oran };
   }
-  return null; // bu taktik için henüz market-özel kontrol yok
+
+  // İY (ilk yarı) Toplam Gol Üst taktikleri — 0.5/1.5 çizgileri doğrulandı.
+  const IY_UST_HARITASI = {
+    T_IY_LIG: 0.5, T_U_IY: 0.5, T_TEMPO_IY05: 0.5,
+    TH_IY: 1.5, T_TEMPO_IY15: 1.5,
+  };
+  if (taktik in IY_UST_HARITASI) {
+    const cizgi = IY_UST_HARITASI[taktik];
+    const mtid = IY_ALT_UST_MTID[cizgi];
+    const oran = canliOranBul(ma, mtid, cizgi, 2); // N=2 = Üst
+    return { market: `İY ${cizgi} Üst`, pazarAcik: oran != null, oran };
+  }
+
+  return null; // bu taktik için henüz market-özel kontrol yok (3.5/4.5 Gol çizgileri araştırılıyor)
 }
 
 async function sinyalIsle(request, env) {
