@@ -126,6 +126,34 @@ tahminindeki gibi.
     cron tik'i ⇒ günlük ~500 yazma, Workers KV free plan'ın (1000/gün)
     altında kalacak şekilde tasarlandı.
 
+## Kırmızı Bot Entegrasyonu (`/api/sinyal`)
+
+Ayrı bir repo olan **kırmızı bot** (`drms02/k-rm-z-`, DigitalOcean'da 7/24
+çalışan, Mackolik tabanlı canlı taktik-sinyal botu), her yeni sinyalinde
+`POST /api/sinyal` uç noktasına istek atar. Amaç: bot bazen Nesine'de hiç
+olmayan ya da oranı kapalı maçlara sinyal üretebiliyordu — bu uç nokta,
+sinyali sitede göstermeden önce **maçın gerçekten Nesine'de var olduğunu**
+doğruluyor.
+
+- Gövde: `{ home, away, lig, taktik, dk, skorEv, skorDep, tahmin, minOran }`
+  — kimlik doğrulama `X-Sinyal-Key` header'ıyla (Worker secret'ı
+  `SINYAL_ANAHTARI`, `wrangler secret put` ile ayarlanır).
+- Worker, `home`/`away`'i Nesine'nin canlı bültenindeki takım isimleriyle
+  **bulanık eşleştirir** (`takimBenzerlikSkoru` — normalize + Jaccard
+  benzeri kelime kümesi kesişimi, eşik 0.55) çünkü Mackolik ve Nesine
+  takım isimleri birebir aynı yazılmıyor.
+- Eşleşme bulunursa `sinyal:{nesineMacId}` anahtarıyla KV'ye yazılır (4 saat
+  TTL); `/api/canli` bu maçı listelerken `kirmiziSinyal` alanına ekler,
+  site Canlı sekmesinde o maçın kartında "🔴 Kırmızı Sinyal" alt bölümü
+  olarak gösterir. Eşleşme yoksa `{"eslesti": false}` döner, sitede hiçbir
+  şey görünmez.
+- **Bilinen eksik / yapılacak:** şu an sadece "maç Nesine'de var mı"
+  kontrol ediliyor; taktiğin karşılık geldiği spesifik oranın (kırmızı
+  bot'un taktikleri sadece 3 market ailesine düşüyor: Maç Sonucu 1-X-2,
+  MS Alt/Üst 1.5-4.5, İY Alt/Üst 0.5-1.5) açık/kapalı/çok düşük olup
+  olmadığı henüz kontrol edilmiyor — ilgili Nesine market kodları (MTID)
+  canlı maç verisiyle doğrulanınca eklenecek.
+
 ## Market kodları (MTID)
 
 Nesine market kimliklerini resmi olarak yayınlamıyor; aşağıdaki eşleşmeler

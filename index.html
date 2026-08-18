@@ -306,6 +306,27 @@
     border-radius:10px;
     padding:9px 10px;
   }
+  .match-card.tier-kirmizi{border-left-color:var(--seal);}
+  .kirmizi-badge{
+    display:inline-flex; align-items:center; gap:3px; flex:none;
+    font-size:9.5px; font-weight:800;
+    color:#fff; background:var(--seal);
+    padding:1px 7px; border-radius:999px;
+    margin-left:6px; vertical-align:middle;
+  }
+  .kirmizi-sinyal{
+    background:color-mix(in srgb, var(--seal) 14%, var(--parchment-2));
+    border:1px solid color-mix(in srgb, var(--seal) 30%, transparent);
+    border-radius:10px;
+    padding:9px 10px;
+    margin-bottom:8px;
+  }
+  .kirmizi-sinyal-baslik{
+    font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.02em;
+    color:var(--seal); margin-bottom:3px;
+  }
+  .kirmizi-sinyal-tahmin{font-size:14px; font-weight:800;}
+  .kirmizi-sinyal-detay{font-size:11.5px; color:var(--ink-soft); margin-top:2px;}
   .chevron{
     flex:none;
     font-size:11px; color:var(--ink-faint);
@@ -880,6 +901,18 @@
     let inner = '<div class="live-detail-note">🔴 Canlı · ' + escapeHtml(m.dakika) +
       (skorVar ? " · Skor " + skorTxt : "") + '</div>';
 
+    if (m.kirmiziSinyal){
+      const s = m.kirmiziSinyal;
+      inner += '<div class="kirmizi-sinyal">' +
+        '<div class="kirmizi-sinyal-baslik">🔴 Kırmızı Sinyal</div>' +
+        '<div class="kirmizi-sinyal-tahmin">' + escapeHtml(s.tahmin || s.taktik || "") + '</div>' +
+        '<div class="kirmizi-sinyal-detay">' +
+          (s.dk != null ? "Sinyal dakikası: " + escapeHtml(String(s.dk)) + "'" : "") +
+          (s.minOran != null ? " · Min. oran: " + escapeHtml(String(s.minOran)) : "") +
+        '</div>' +
+      '</div>';
+    }
+
     if (tier){
       const pct = Math.round(m.tutmaOrani * 100);
       inner += '<div class="chip-row">' +
@@ -901,9 +934,10 @@
       inner += '<p class="section-note" style="margin:8px 4px 0;">Bu maçın başlamadan hemen önceki son oranı yakalanamadı; KG/6+ Gol tahmini yok.</p>';
     }
 
-    let html = '<div class="match-card' + (tier ? " tier-" + tier : "") + (expandedIds.has(m.id) ? " expanded" : "") + '">';
+    let html = '<div class="match-card' + (tier ? " tier-" + tier : "") + (m.kirmiziSinyal ? " tier-kirmizi" : "") + (expandedIds.has(m.id) ? " expanded" : "") + '">';
     html += '<button type="button" class="card-head">' +
-      '<div class="match-top"><span class="league">' + escapeHtml(m.lig) + '</span>' +
+      '<div class="match-top"><span class="league">' + escapeHtml(m.lig) +
+        (m.kirmiziSinyal ? ' <span class="kirmizi-badge">🔴 Sinyal</span>' : "") + '</span>' +
         '<span class="kickoff-wrap"><span class="live-badge"><span class="live-dot"></span>' + escapeHtml(m.dakika) + '</span></span></div>' +
       '<div class="teams-row"><span class="teams">' + escapeHtml(m.evSahibi) +
         (skorVar ? ' <span class="live-score">' + skorTxt + '</span> ' : ' — ') +

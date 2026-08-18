@@ -248,21 +248,29 @@ async function canliyaTahminEkle(maclar, env) {
     tahminZamani: null,
   };
   return Promise.all(maclar.map(async (m) => {
-    if (!env || !env.KG_SNAPSHOTS) return { ...m, ...bosTahmin };
+    if (!env || !env.KG_SNAPSHOTS) return { ...m, ...bosTahmin, kirmiziSinyal: null };
+
+    let tahminAlanlari = bosTahmin;
     try {
       const ham = await env.KG_SNAPSHOTS.get(m.id);
-      if (!ham) return { ...m, ...bosTahmin };
-      const anlik = JSON.parse(ham);
-      return {
-        ...m,
-        msKg: anlik.msKg, altUst6: anlik.altUst6, iymsKg: anlik.iymsKg,
-        onerilen: anlik.onerilen, tutma: anlik.tutma, toplam: anlik.toplam,
-        tutmaOrani: anlik.tutmaOrani, guven: anlik.guven,
-        tahminZamani: anlik.tahminZamani || null,
-      };
-    } catch (err) {
-      return { ...m, ...bosTahmin };
-    }
+      if (ham) {
+        const anlik = JSON.parse(ham);
+        tahminAlanlari = {
+          msKg: anlik.msKg, altUst6: anlik.altUst6, iymsKg: anlik.iymsKg,
+          onerilen: anlik.onerilen, tutma: anlik.tutma, toplam: anlik.toplam,
+          tutmaOrani: anlik.tutmaOrani, guven: anlik.guven,
+          tahminZamani: anlik.tahminZamani || null,
+        };
+      }
+    } catch (err) { /* bosTahmin ile devam */ }
+
+    let kirmiziSinyal = null;
+    try {
+      const sinyalHam = await env.KG_SNAPSHOTS.get("sinyal:" + m.id);
+      if (sinyalHam) kirmiziSinyal = JSON.parse(sinyalHam);
+    } catch (err) { /* sinyal yok say */ }
+
+    return { ...m, ...tahminAlanlari, kirmiziSinyal };
   }));
 }
 
@@ -294,6 +302,132 @@ async function snapshotAlVeYaz(env) {
   await Promise.all(yazmalar);
 }
 
+// ============================================================
+// KIRMIZI BOT ENTEGRASYONU
+// Kırmızı bot (ayrı repo, DigitalOcean'da 7/24 çalışan Mackolik tabanlı
+// canlı sinyal botu) her yeni taktik sinyalinde buraya POST atar. Burada
+// takım isimleri Nesine'nin canlı bültenindeki isimlerle bulanık (fuzzy)
+// eşleştirilir; eşleşme bulunursa (yani maç gerçekten Nesine'de varsa)
+// sinyal KV'ye yazılır ve /api/canli o maçın altında gösterir.
+// TODO (bu akşam canlı maç verisiyle tamamlanacak): market-özel oran
+// kontrolü — şu an sadece "maç Nesine'de var mı" doğrulanıyor, taktiğin
+// karşılık geldiği spesifik oranın (MS/İY Alt-Üst, Maç Sonucu) açık/kapalı
+// olup olmadığı henüz kontrol edilmiyor (MTID eşlemeleri netleşince eklenecek).
+// ============================================================
+
+const _TURKCE_HARF_ESLEME = { "ı": "i", "İ": "i", "ğ": "g", "ş": "s", "ç": "c", "ö": "o", "ü": "u" };
+const _TAKIM_GURULTU_KELIMELER = /\b(fc|cf|sk|ac|afc|cd|fk|sc|ssd|ud|kf|us|sv|bk|if|aif|cfr|res|reserves?|u\d{2})\b/g;
+
+function normalizeTakimAdi(s) {
+  if (!s) return "";
+  let t = String(s).toLocaleLowerCase("tr-TR");
+  t = t.replace(/[ıİğşçöü]/g, (c) => _TURKCE_HARF_ESLEME[c] || c);
+  t = t.normalize("NFD").replace(/[̀-ͯ]/g, "");
+  t = t.replace(/[^a-z0-9\s]/g, " ");
+  t = t.replace(_TAKIM_GURULTU_KELIMELER, " ");
+  return t.replace(/\s+/g, " ").trim();
+}
+
+function _takimTokenSeti(s) {
+  return new Set(normalizeTakimAdi(s).split(" ").filter((w) => w.length > 1));
+}
+
+// Basit bulanık benzerlik: tam eşleşme / alt-dize içerme / kelime kümesi kesişimi (Jaccard).
+// Mackolik ve Nesine takım isimleri farklı formatlarda olabildiği için (kısaltma,
+// ek kelime vb.) tam string eşitliği yeterli değil.
+function takimBenzerlikSkoru(a, b) {
+  const na = normalizeTakimAdi(a), nb = normalizeTakimAdi(b);
+  if (!na || !nb) return 0;
+  if (na === nb) return 1;
+  if (na.includes(nb) || nb.includes(na)) return 0.9;
+  const ta = _takimTokenSeti(a), tb = _takimTokenSeti(b);
+  if (ta.size === 0 || tb.size === 0) return 0;
+  let ortak = 0;
+  for (const w of ta) if (tb.has(w)) ortak++;
+  return ortak / Math.max(ta.size, tb.size);
+}
+
+const SINYAL_ESLESME_ESIGI = 0.55;
+
+// Kırmızı bot'tan gelen (home, away) çiftini Nesine'nin canlı bültenindeki
+// futbol etkinlikleriyle eşleştirmeye çalışır. En iyi skoru eşik üzerinde
+// olan etkinliği döner, yoksa null.
+async function sinyalMacinaEslestir(homeMack, awayMack) {
+  let canliBulten;
+  try {
+    canliBulten = await canliBultenCek();
+  } catch (err) {
+    return null;
+  }
+  const etkinlikler = (canliBulten.sg && canliBulten.sg.EA) || [];
+  let enIyiEtkinlik = null;
+  let enIyiSkor = 0;
+  for (const e of etkinlikler) {
+    if (e.GT !== 1) continue;
+    const evSahibi = String(e.HN ?? "").trim();
+    const deplasman = String(e.AN ?? "").trim();
+    if (!evSahibi || !deplasman) continue;
+    const skor = (takimBenzerlikSkoru(homeMack, evSahibi) + takimBenzerlikSkoru(awayMack, deplasman)) / 2;
+    if (skor > enIyiSkor) {
+      enIyiSkor = skor;
+      enIyiEtkinlik = e;
+    }
+  }
+  if (enIyiEtkinlik && enIyiSkor >= SINYAL_ESLESME_ESIGI) {
+    return { etkinlik: enIyiEtkinlik, skor: enIyiSkor };
+  }
+  return null;
+}
+
+async function sinyalIsle(request, env) {
+  const anahtar = request.headers.get("X-Sinyal-Key");
+  if (!env.SINYAL_ANAHTARI || anahtar !== env.SINYAL_ANAHTARI) {
+    return jsonResponse({ hata: "yetkisiz" }, 401);
+  }
+
+  let govde;
+  try {
+    govde = await request.json();
+  } catch (err) {
+    return jsonResponse({ hata: "gecersiz govde" }, 400);
+  }
+
+  const { home, away, lig, taktik, dk, skorEv, skorDep, tahmin, minOran, guven } = govde || {};
+  if (!home || !away || !taktik) {
+    return jsonResponse({ hata: "home, away, taktik alanlari zorunlu" }, 400);
+  }
+
+  const eslesme = await sinyalMacinaEslestir(home, away);
+  if (!eslesme) {
+    return jsonResponse({ eslesti: false });
+  }
+
+  const nesineMacId = String(eslesme.etkinlik.C ?? "");
+  if (!nesineMacId) {
+    return jsonResponse({ eslesti: false });
+  }
+
+  const kayit = {
+    taktik,
+    tahmin: tahmin ?? null,
+    minOran: minOran ?? null,
+    guven: guven ?? null,
+    dk: dk ?? null,
+    skorEv: skorEv ?? null,
+    skorDep: skorDep ?? null,
+    macMack: `${home} - ${away}`,
+    ligMack: lig ?? null,
+    eslesmeSkoru: eslesme.skor,
+    gonderilisZamani: toIstanbulIso(new Date()),
+  };
+
+  if (env.KG_SNAPSHOTS) {
+    await env.KG_SNAPSHOTS.put("sinyal:" + nesineMacId, JSON.stringify(kayit), { expirationTtl: 4 * 3600 });
+  }
+
+  return jsonResponse({ eslesti: true, nesineMacId, eslesmeSkoru: eslesme.skor });
+}
+
 function jsonResponse(obj, status, extraHeaders) {
   return new Response(JSON.stringify(obj), {
     status: status || 200,
@@ -319,6 +453,10 @@ export default {
       return new Response(indexHtml, {
         headers: { "Content-Type": "text/html; charset=utf-8" },
       });
+    }
+
+    if (pathname === "/api/sinyal" && request.method === "POST") {
+      return sinyalIsle(request, env);
     }
 
     if (pathname !== "/api/bulten" && pathname !== "/api/canli") {
