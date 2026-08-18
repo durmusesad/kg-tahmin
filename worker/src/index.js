@@ -406,13 +406,13 @@ async function sinyalMacinaEslestir(homeMack, awayMack) {
 //   MTID=208 SOV=0.5  → "MAÇ SONUCU ALT/ÜST" bölümünde "0,5 Gol Alt/Üst" (tam maç)
 //   MTID=66  SOV=1.5  → "MAÇ SONUCU ALT/ÜST" bölümünde "1,5 Gol Alt/Üst" (tam maç)
 //   MTID=67  SOV=2.5  → "MAÇ SONUCU ALT/ÜST" bölümünde "2,5 Gol Alt/Üst" (tam maç)
+//   MTID=68  SOV=3.5  → "MAÇ SONUCU ALT/ÜST" bölümünde "3,5 Gol Alt/Üst" (tam maç)
+//   MTID=156 SOV=4.5  → "MAÇ SONUCU ALT/ÜST" bölümünde "4,5 Gol Alt/Üst" (tam maç)
 //   MTID=69  SOV=0.5  → "YARI ALT/ÜST" bölümünde "1. Yarı 0,5 Alt/Üst"
 //   MTID=70  SOV=1.5  → "YARI ALT/ÜST" bölümünde "1. Yarı 1,5 Alt/Üst"
-// Tüm bu marketlerde N=1 Alt, N=2 Üst. 3.5/4.5 Gol çizgileri (TA/T1/T3/
-// T_ERKEN_MS_35_ALT/TA_CASCADE/T3_CASCADE/T_CIFT_YUK için gerekli) canlı
-// bültende henüz doğrulanamadı — o taktikler için sadece "maç Nesine'de var
-// mı" seviyesinde kalınıyor (oranDurumu: null), araştırma sürüyor.
-const MS_ALT_UST_MTID = { 0.5: 208, 1.5: 66, 2.5: 67 };
+// Tüm bu marketlerde N=1 Alt, N=2 Üst. Kırmızı bot'un tüm taktikleri bu
+// eşlemelerle kapsanıyor artık.
+const MS_ALT_UST_MTID = { 0.5: 208, 1.5: 66, 2.5: 67, 3.5: 68, 4.5: 156 };
 const IY_ALT_UST_MTID = { 0.5: 69, 1.5: 70 };
 
 function taktikOraniniKontrolEt(taktik, ma, skorEv, skorDep) {
@@ -423,16 +423,25 @@ function taktikOraniniKontrolEt(taktik, ma, skorEv, skorDep) {
     return { market: "Maç Sonucu", pazarAcik: oran != null, oran };
   }
 
-  // MS (tam maç) Toplam Gol Üst taktikleri — 0.5/1.5/2.5 çizgileri doğrulandı.
+  // MS (tam maç) Toplam Gol Üst taktikleri — 0.5/1.5/2.5/3.5/4.5 çizgilerinin
+  // hepsi doğrulandı (bkz. MS_ALT_UST_MTID yorumu).
   const MS_UST_HARITASI = {
     TH: 1.5, TB_OVER: 1.5,
     TC: 2.5, TC_CASCADE: 2.5, T_IY11: 2.5,
+    TA: 3.5, T1: 3.5, TE: 3.5, TA_CASCADE: 3.5,
+    T3: 4.5, T3_CASCADE: 4.5, T_CIFT_YUK: 4.5,
   };
   if (taktik in MS_UST_HARITASI) {
     const cizgi = MS_UST_HARITASI[taktik];
     const mtid = MS_ALT_UST_MTID[cizgi];
     const oran = canliOranBul(ma, mtid, cizgi, 2); // N=2 = Üst
     return { market: `MS ${cizgi} Üst`, pazarAcik: oran != null, oran };
+  }
+
+  // MS (tam maç) Toplam Gol Alt taktiği.
+  if (taktik === "T_ERKEN_MS_35_ALT") {
+    const oran = canliOranBul(ma, MS_ALT_UST_MTID[3.5], 3.5, 1); // N=1 = Alt
+    return { market: "MS 3.5 Alt", pazarAcik: oran != null, oran };
   }
 
   // İY (ilk yarı) Toplam Gol Üst taktikleri — 0.5/1.5 çizgileri doğrulandı.
@@ -447,7 +456,7 @@ function taktikOraniniKontrolEt(taktik, ma, skorEv, skorDep) {
     return { market: `İY ${cizgi} Üst`, pazarAcik: oran != null, oran };
   }
 
-  return null; // bu taktik için henüz market-özel kontrol yok (3.5/4.5 Gol çizgileri araştırılıyor)
+  return null; // bilinmeyen taktik kodu
 }
 
 async function sinyalIsle(request, env) {
