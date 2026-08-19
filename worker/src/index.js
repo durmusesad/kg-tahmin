@@ -209,6 +209,22 @@ function canliSkorHesapla(kayit) {
   return goruldu ? [toplamEv, toplamDep] : [null, null];
 }
 
+// canliSkorHesapla'nın aynısı ama sadece ilk yarıya ait (T===1) ES kaydını
+// toplar — kişisel veri havuzu için İY skoru çıkarmakta kullanılır. Veri
+// yoksa [null, null] döner (bloklamaz, sadece İY hücresi boş kalır).
+function ilkYariSkorHesapla(kayit) {
+  let toplamEv = 0, toplamDep = 0, goruldu = false;
+  for (const es of kayit.ES || []) {
+    if (es.T === 1) {
+      const h = Number(es.H ?? 0), a = Number(es.A ?? 0);
+      if (Number.isFinite(h) && Number.isFinite(a)) {
+        toplamEv += h; toplamDep += a; goruldu = true;
+      }
+    }
+  }
+  return goruldu ? [toplamEv, toplamDep] : [null, null];
+}
+
 function canliMaclariIsle(canliBultenVerisi, canliSkorVerisi) {
   const sg = canliBultenVerisi.sg || {};
   const etkinlikler = sg.EA || [];
@@ -309,6 +325,7 @@ async function snapshotAlVeYaz(env) {
   const simdiMs = Date.now();
 
   const yazmalar = [];
+  const yeniKesinler = [];
   for (const m of maclar) {
     if (m.msKg == null && m.altUst6 == null && m.iymsKg == null) continue; // hiç market yoksa saklamaya değmez
     const macMs = new Date(m.macZamani).getTime();
@@ -317,8 +334,148 @@ async function snapshotAlVeYaz(env) {
     if (kalanDk < 0 || kalanDk > 2) continue; // sadece kickoff'a en fazla 2 dk kalan maçlar
     const kayit = { ...m, tahminZamani: toIstanbulIso(new Date()) };
     yazmalar.push(env.KG_SNAPSHOTS.put(m.id, JSON.stringify(kayit), { expirationTtl: 6 * 3600 }));
+    if (m.guven === "kesin") {
+      yeniKesinler.push({ id: m.id, lig: m.lig, evSahibi: m.evSahibi, deplasman: m.deplasman, macZamani: m.macZamani });
+    }
   }
   await Promise.all(yazmalar);
+  await kesinBekleyenEkle(env, yeniKesinler);
+}
+
+// Kişisel veri havuzu: maç öncesi "Kesin" olarak işaretlenmiş maçların id'lerini
+// havuz:bekleyen listesine ekler, böylece havuzGuncelle her dakika bu maçların
+// bitip bitmediğini kontrol edebilir. Id bazlı dedupe ile aynı maç iki kez
+// eklenmez.
+async function kesinBekleyenEkle(env, yeniler) {
+  if (!env || !env.KG_SNAPSHOTS || !yeniler || yeniler.length === 0) return;
+  try {
+    const ham = await env.KG_SNAPSHOTS.get("havuz:bekleyen");
+    const mevcut = ham ? JSON.parse(ham) : [];
+    const idSeti = new Set(mevcut.map((k) => k.id));
+    const simdi = toIstanbulIso(new Date());
+    let degisti = false;
+    for (const y of yeniler) {
+      if (!idSeti.has(y.id)) {
+        mevcut.push({ ...y, eklenmeZamani: simdi });
+        idSeti.add(y.id);
+        degisti = true;
+      }
+    }
+    if (degisti) {
+      await env.KG_SNAPSHOTS.put("havuz:bekleyen", JSON.stringify(mevcut));
+    }
+  } catch (err) { /* sessizce vazgeç, gelecek dakika tekrar denenir */ }
+}
+
+// Her dakika snapshotAlVeYaz'dan sonra çalışır: havuz:bekleyen listesindeki
+// "Kesin" maçların bitip bitmediğini kontrol eder, bitenlerin gerçek sonucunu
+// (İY/MS skoru + maç öncesi son oran + KG var mı) havuz:veri listesine kalıcı
+// olarak ekler. Skor verisi eksik/geçersizse ya da maç öncesi oran snapshot'ı
+// bulunamıyorsa o maç sessizce atlanır — yarım/hatalı kayıt asla yazılmaz.
+async function havuzGuncelle(env) {
+  if (!env || !env.KG_SNAPSHOTS) return;
+
+  let bekleyen;
+  try {
+    const ham = await env.KG_SNAPSHOTS.get("havuz:bekleyen");
+    bekleyen = ham ? JSON.parse(ham) : [];
+  } catch (err) {
+    return;
+  }
+  if (!Array.isArray(bekleyen) || bekleyen.length === 0) return;
+
+  let canliSkorVerisi;
+  try {
+    canliSkorVerisi = await canliSkorCek();
+  } catch (err) {
+    return; // gelecek dakika tekrar denenecek
+  }
+  const skorMap = new Map();
+  for (const kayit of (canliSkorVerisi && canliSkorVerisi.d) || []) {
+    const c = kayit.C ?? kayit.NID;
+    if (c != null) skorMap.set(String(c), kayit);
+  }
+
+  const simdiMs = Date.now();
+  const kalanlar = [];
+  const tamamlananlar = [];
+
+  for (const bek of bekleyen) {
+    try {
+      const skorKayit = skorMap.get(String(bek.id));
+      if (!skorKayit) {
+        const eklenmeMs = new Date(bek.eklenmeZamani).getTime();
+        if (Number.isFinite(eklenmeMs) && simdiMs - eklenmeMs > 6 * 3600 * 1000) {
+          continue; // 6 saattir sonuç alınamadı, vazgeç (listeyi sonsuza dek şişirmesin)
+        }
+        kalanlar.push(bek);
+        continue;
+      }
+
+      const dakika = dakikaHesapla(skorKayit, simdiMs);
+      if (dakika !== null) {
+        kalanlar.push(bek); // hâlâ oynanıyor
+        continue;
+      }
+
+      // Maç bitti (dakikaHesapla null döndü) — sonucu hesapla.
+      const [skorEv, skorDep] = canliSkorHesapla(skorKayit);
+      if (!Number.isInteger(skorEv) || !Number.isInteger(skorDep) || skorEv < 0 || skorDep < 0) {
+        continue; // geçersiz/eksik skor, yazma
+      }
+
+      const snapHam = await env.KG_SNAPSHOTS.get(bek.id);
+      if (!snapHam) continue; // maç öncesi son oran snapshot'ı yok, oransız kayıt yazma
+      let snap;
+      try {
+        snap = JSON.parse(snapHam);
+      } catch (err) {
+        continue;
+      }
+
+      const [iyEv, iyDep] = ilkYariSkorHesapla(skorKayit);
+      const kayitYeni = {
+        macId: bek.id,
+        lig: bek.lig,
+        evSahibi: bek.evSahibi,
+        deplasman: bek.deplasman,
+        tarih: (bek.macZamani || "").slice(0, 10) || null,
+        iy: Number.isInteger(iyEv) && Number.isInteger(iyDep) ? `${iyEv}:${iyDep}` : null,
+        ms: `${skorEv}:${skorDep}`,
+        iymsKgOran: typeof snap.iymsKg === "number" ? snap.iymsKg : null,
+        altiGolOran: typeof snap.altUst6 === "number" ? snap.altUst6 : null,
+        kgVar: skorEv > 0 && skorDep > 0,
+        eklenmeZamani: toIstanbulIso(new Date()),
+      };
+      tamamlananlar.push({ bek, kayitYeni });
+    } catch (err) {
+      kalanlar.push(bek); // bu tick'te işlenemedi, tekrar denenecek
+    }
+  }
+
+  if (tamamlananlar.length > 0) {
+    try {
+      const ham = await env.KG_SNAPSHOTS.get("havuz:veri");
+      const havuz = ham ? JSON.parse(ham) : [];
+      const idSeti = new Set(havuz.map((k) => k.macId));
+      for (const t of tamamlananlar) {
+        if (!idSeti.has(t.bek.id)) {
+          havuz.push(t.kayitYeni);
+          idSeti.add(t.bek.id);
+        }
+      }
+      await env.KG_SNAPSHOTS.put("havuz:veri", JSON.stringify(havuz));
+    } catch (err) {
+      // havuz:veri'ye yazılamadı — bu maçları bekleyen listesine geri koy ki
+      // gelecek dakika tekrar denensin, veri kaybolmasın.
+      for (const t of tamamlananlar) kalanlar.push(t.bek);
+      tamamlananlar.length = 0;
+    }
+  }
+
+  try {
+    await env.KG_SNAPSHOTS.put("havuz:bekleyen", JSON.stringify(kalanlar));
+  } catch (err) { /* sessizce vazgeç, gelecek dakika tekrar denenir */ }
 }
 
 // ============================================================
@@ -546,6 +703,19 @@ export default {
       return sinyalIsle(request, env);
     }
 
+    if (pathname === "/api/havuz" && request.method === "GET") {
+      let kayitlar = [];
+      try {
+        if (env.KG_SNAPSHOTS) {
+          const ham = await env.KG_SNAPSHOTS.get("havuz:veri");
+          kayitlar = ham ? JSON.parse(ham) : [];
+        }
+      } catch (err) {
+        kayitlar = [];
+      }
+      return jsonResponse({ macSayisi: kayitlar.length, kayitlar });
+    }
+
     if (pathname !== "/api/bulten" && pathname !== "/api/canli") {
       return new Response("Not found", { status: 404 });
     }
@@ -594,6 +764,11 @@ export default {
   },
 
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(snapshotAlVeYaz(env));
+    ctx.waitUntil(
+      (async () => {
+        await snapshotAlVeYaz(env);
+        await havuzGuncelle(env);
+      })()
+    );
   },
 };
