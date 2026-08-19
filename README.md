@@ -149,12 +149,16 @@ tablosuna benzer ama tamamen bu sistemin ürettiği veri.
 - Bir maç 6 saat içinde canlı feed'de hiç bulunamaz ya da bitmezse
   `havuz:bekleyen`den düşürülür (kaybolan/ertelenen maçlar listeyi sonsuza
   dek şişirmesin diye).
+- İY/MS-KG ve 6+Gol oranları, `tahminAlanlariCikar`'ın çift-anahtarı için
+  yaptığı gibi küsüratsız (`Math.floor`) tutulur; `iymsKgCift` alanı bu
+  floor'lanmış çiftin `"17,15"` formatındaki string'ini önceden hesaplar.
 - `GET /api/havuz` → `{ macSayisi, kayitlar: [...] }` döner. Site üzerinde
-  "Veri Havuzu" ekranından bu kayıtlar CSV olarak indirilebilir (sütunlar:
-  Tarih, Lig, İY, MS, İY/MS KG Oranı, 6+ Gol Oranı, KG Var mı — kullanıcının
-  masaüstündeki kişisel Excel kopyasıyla aynı format).
-- Not: "Hafta" sütunu yok — Nesine canlı verisinde lig-fikstür-hafta bilgisi
-  bulunmadığı için onun yerine gerçek maç tarihi yazılıyor.
+  "Veri Havuzu" ekranından bu kayıtlar CSV olarak indirilebilir — sütun
+  sırası kullanıcının masaüstündeki kişisel Excel'in "Veri" sekmesiyle
+  **birebir aynı**: Hafta, Lig, İY, MS, İY/MS KG Oranı, 6+ Gol Oranı,
+  KG Var mı, İY/MS Çift — doğrudan aynı tabloya eklenebilsin diye.
+- Not: "Hafta" sütununda lig-fikstür-hafta no yerine gerçek maç tarihi
+  yazılıyor (Nesine canlı verisinde böyle bir bilgi yok).
 
 ## Kırmızı Bot Entegrasyonu (`/api/sinyal`)
 

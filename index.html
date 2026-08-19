@@ -632,7 +632,7 @@
     <div class="kupon-screen-card">
       <div class="kupon-head"><h2>Kişisel Veri Havuzu</h2></div>
       <div class="kupon-calc">
-        <p class="kupon-note">Canlıda "Kesin" işaretlenen maçlar bittiğinde, maç öncesi son oranıyla birlikte gerçek sonucu (skor ve KG var mı) burada otomatik birikir.</p>
+        <p class="kupon-note">Canlıda "Kesin" işaretlenen maçlar bittiğinde, maç öncesi son oranıyla birlikte gerçek sonucu (skor ve KG var mı) burada otomatik birikir. İndirilen CSV, kendi Excel tablonuzdaki sütunlarla (Hafta, Lig, İY, MS, İY/MS KG Oranı, 6+ Gol Oranı, KG Var mı, İY/MS Çift) birebir aynı — doğrudan aynı tabloya ekleyebilirsiniz.</p>
         <div class="kupon-calc-row"><span>Toplam Kayıt</span><span class="v" id="havuzSayisi">0</span></div>
         <button type="button" class="add-coupon-btn" id="havuzIndirBtn">CSV İndir</button>
       </div>
@@ -830,7 +830,11 @@
   }
 
   function havuzCsvIndir(){
-    const basliklar = ["Tarih","Lig","İY","MS","İY/MS KG Oranı","6+ Gol Oranı","KG Var mı"];
+    // Kolon sırası kullanıcının kendi masaüstündeki Excel'in "Veri" sekmesiyle
+    // birebir aynı (Hafta sütununda lig-hafta no yerine gerçek maç tarihi var,
+    // Nesine canlı verisinde lig fikstür haftası bilgisi yok) — bu satırlar
+    // doğrudan aynı tabloya eklenebilsin diye.
+    const basliklar = ["Hafta","Lig","İY","MS","İY/MS KG Oranı","6+ Gol Oranı","KG Var mı","İY/MS Çift"];
     const satirlar = [basliklar.join(";")];
     for (const k of havuzKayitlari){
       const kgVar = k.kgVar === true ? "Evet" : (k.kgVar === false ? "Hayır" : "");
@@ -841,7 +845,8 @@
         k.ms || "",
         k.iymsKgOran != null ? k.iymsKgOran : "",
         k.altiGolOran != null ? k.altiGolOran : "",
-        kgVar
+        kgVar,
+        k.iymsKgCift || ""
       ].join(";"));
     }
     const csv = String.fromCharCode(0xFEFF) + satirlar.join("\r\n"); // BOM: Excel Türkçe karakterleri doğru göstersin

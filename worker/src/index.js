@@ -434,6 +434,11 @@ async function havuzGuncelle(env) {
       }
 
       const [iyEv, iyDep] = ilkYariSkorHesapla(skorKayit);
+      // Kişisel tablo (Excel) İY/MS KG ve 6+ Gol oranlarını küsüratsız (tam
+      // sayı) tutuyor — tıpkı tahminAlanlariCikar'ın çift anahtarı için
+      // yaptığı gibi (Math.floor). Aynı formata uymak için burada da floor'luyoruz.
+      const iymsKgOran = typeof snap.iymsKg === "number" ? Math.floor(snap.iymsKg) : null;
+      const altiGolOran = typeof snap.altUst6 === "number" ? Math.floor(snap.altUst6) : null;
       const kayitYeni = {
         macId: bek.id,
         lig: bek.lig,
@@ -442,8 +447,9 @@ async function havuzGuncelle(env) {
         tarih: (bek.macZamani || "").slice(0, 10) || null,
         iy: Number.isInteger(iyEv) && Number.isInteger(iyDep) ? `${iyEv}:${iyDep}` : null,
         ms: `${skorEv}:${skorDep}`,
-        iymsKgOran: typeof snap.iymsKg === "number" ? snap.iymsKg : null,
-        altiGolOran: typeof snap.altUst6 === "number" ? snap.altUst6 : null,
+        iymsKgOran,
+        altiGolOran,
+        iymsKgCift: iymsKgOran != null && altiGolOran != null ? `${iymsKgOran},${altiGolOran}` : null,
         kgVar: skorEv > 0 && skorDep > 0,
         eklenmeZamani: toIstanbulIso(new Date()),
       };
