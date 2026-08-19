@@ -422,10 +422,15 @@ async function havuzGuncelle(env) {
         continue;
       }
 
-      // Maç bitti (dakikaHesapla null döndü) — sonucu hesapla.
+      // Maç bitti (dakikaHesapla null döndü) — sonucu hesapla. Skor verisi bu
+      // tikte eksik/gecikmeli gelmiş olabilir (Nesine tarafında anlık bir
+      // gecikme) — kalıcı olarak vazgeçmek yerine bekleyen listesinde bırakıp
+      // gelecek dakika tekrar deneriz; 6 saatlik zaman aşımı zaten kalıcı
+      // kaybolan maçları temizliyor.
       const [skorEv, skorDep] = canliSkorHesapla(skorKayit);
       if (!Number.isInteger(skorEv) || !Number.isInteger(skorDep) || skorEv < 0 || skorDep < 0) {
-        continue; // geçersiz/eksik skor, yazma
+        kalanlar.push(bek);
+        continue;
       }
 
       const snapHam = await env.KG_SNAPSHOTS.get(bek.id);
@@ -463,26 +468,47 @@ async function havuzGuncelle(env) {
   }
 
   if (tamamlananlar.length > 0) {
+    // İki ayrı yazma adımı VAR: (1) paylaşılan HAVUZ_KV'ye gerçek kayıt,
+    // (2) kg-tahmin'in kendi iç "yazıldı" listesi (dedupe). Bunları TEK
+    // try/catch'te birleştirmek mükerrer kayda yol açabilir: (1) başarılı
+    // olup (2) başarısız olursa, eskiden ikisi de "başarısız" sayılıp maç
+    // bekleyen listesine geri konuyordu — gelecek dakika (2) hâlâ eski
+    // olduğu için dedupe bunu YENİ sanıp HAVUZ_KV'ye İKİNCİ KEZ yazardı.
+    // Şimdi: (1) başarısızsa güvenle geri koy (hiçbir şey yazılmadı);
+    // (1) başarılı ama (2) başarısızsa GERİ KOYMA — kayıt zaten yazıldı,
+    // sadece iç dedupe listesi bir sonraki başarılı çalışmaya kadar eksik
+    // kalır, bu zararsızdır (aynı maç bekleyen listesinde tekrar yok zaten).
+    let veriYazildi = false;
+    let yazilacaklar = [];
+    let yazilanIdler = new Set();
     try {
       const idlerHam = await env.KG_SNAPSHOTS.get("havuz:yazilanIdler");
-      const yazilanIdler = new Set(idlerHam ? JSON.parse(idlerHam) : []);
-      const yazilacaklar = tamamlananlar.filter((t) => !yazilanIdler.has(t.bek.id));
+      yazilanIdler = new Set(idlerHam ? JSON.parse(idlerHam) : []);
+      yazilacaklar = tamamlananlar.filter((t) => !yazilanIdler.has(t.bek.id));
 
       if (yazilacaklar.length > 0) {
         const ham = await env.HAVUZ_KV.get("veri");
         const havuz = ham ? JSON.parse(ham) : [];
-        for (const t of yazilacaklar) {
-          havuz.push(t.kayitYeni);
-          yazilanIdler.add(t.bek.id);
-        }
+        for (const t of yazilacaklar) havuz.push(t.kayitYeni);
         await env.HAVUZ_KV.put("veri", JSON.stringify(havuz));
-        await env.KG_SNAPSHOTS.put("havuz:yazilanIdler", JSON.stringify([...yazilanIdler]));
       }
+      veriYazildi = true;
     } catch (err) {
-      // Paylaşılan KV'ye yazılamadı — bu maçları bekleyen listesine geri koy
-      // ki gelecek dakika tekrar denensin, veri kaybolmasın.
+      // HAVUZ_KV'ye (ya da dedupe listesinin okunmasına) yazılamadı — hiçbir
+      // şey yazılmadı, güvenle tekrar denenebilir.
       for (const t of tamamlananlar) kalanlar.push(t.bek);
       tamamlananlar.length = 0;
+    }
+
+    if (veriYazildi && yazilacaklar.length > 0) {
+      try {
+        for (const t of yazilacaklar) yazilanIdler.add(t.bek.id);
+        await env.KG_SNAPSHOTS.put("havuz:yazilanIdler", JSON.stringify([...yazilanIdler]));
+      } catch (err) {
+        // Kayıt zaten HAVUZ_KV'ye yazıldı; sadece iç dedupe listesi
+        // güncellenemedi. Bilerek bekleyen listesine geri KOYULMUYOR —
+        // geri koysak mükerrer kayıt riski doğar.
+      }
     }
   }
 
