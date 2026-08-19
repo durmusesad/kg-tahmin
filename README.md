@@ -126,13 +126,15 @@ tahminindeki gibi.
     cron tik'i ⇒ günlük ~500 yazma, Workers KV free plan'ın (1000/gün)
     altında kalacak şekilde tasarlandı.
 
-## Kişisel Veri Havuzu (`/api/havuz`)
+## Kişisel Veri Havuzu (ayrı, parola korumalı site — bu repoda değil)
 
 Canlıda **Kesin** işaretlenen maçların (maç öncesi son oranla İY/MS-KG ve
 6+Gol çiftinin geçmişte %100 tuttuğu maçlar) gerçek sonucu, maç bittiğinde
 otomatik olarak kalıcı bir listeye ekleniyor — kullanıcının kendi büyüyen
-tahmin veri seti, `data/historical_stats.json`'ın kaynağı olan Excel
-tablosuna benzer ama tamamen bu sistemin ürettiği veri.
+tahmin veri seti. **kg-tahmin sitesinde bu veriye hiçbir public erişim
+yok** — ayrı, kullanıcı adı/parola korumalı bir Cloudflare Worker'a
+(`veri-havuzu-drms`, yerel proje `~/veri-havuzu/`, bu repoya dahil değil,
+GitHub'a hiç bağlı değil) yazılıyor.
 
 - `snapshotAlVeYaz` bir maçı "kesin" olarak snapshot'larken, o maçın id'sini
   ayrıca `havuz:bekleyen` KV listesine ekler (`kesinBekleyenEkle`).
@@ -143,22 +145,21 @@ tablosuna benzer ama tamamen bu sistemin ürettiği veri.
 - Maç bittiğinde: MS skoru geçersizse ya da maç öncesi oran snapshot'ı
   (`KG_SNAPSHOTS.get(macId)`) bulunamıyorsa kayıt **hiç yazılmaz** — yarım
   veya oransız satır riski yok. Geçerliyse İY skoru (`ilkYariSkorHesapla`),
-  MS skoru, maç öncesi İY/MS-KG ve 6+Gol oranı, KG var mı (`kgVar`) bilgisiyle
-  birlikte `havuz:veri` KV listesine eklenir (macId bazlı dedupe — mükerrer
-  kayıt yok).
+  MS skoru, maç öncesi İY/MS-KG ve 6+Gol oranı, KG var mı bilgisiyle
+  birlikte, **iki worker arasında paylaşılan `HAVUZ_KV` namespace'inin**
+  `veri` anahtarına eklenir — mükerrer kayıt engeli (macId dedupe)
+  kg-tahmin'in kendi `KG_SNAPSHOTS`'ı içinde (`havuz:yazilanIdler`) kalır,
+  paylaşılan veriye macId hiç sızmaz; sadece `{ hafta, lig, iy, ms,
+  iymsKgOran, altiGolOran, kgVar }` yazılır.
 - Bir maç 6 saat içinde canlı feed'de hiç bulunamaz ya da bitmezse
   `havuz:bekleyen`den düşürülür (kaybolan/ertelenen maçlar listeyi sonsuza
   dek şişirmesin diye).
 - İY/MS-KG ve 6+Gol oranları, `tahminAlanlariCikar`'ın çift-anahtarı için
-  yaptığı gibi küsüratsız (`Math.floor`) tutulur; `iymsKgCift` alanı bu
-  floor'lanmış çiftin `"17,15"` formatındaki string'ini önceden hesaplar.
-- `GET /api/havuz` → `{ macSayisi, kayitlar: [...] }` döner. Site üzerinde
-  "Veri Havuzu" ekranından bu kayıtlar CSV olarak indirilebilir — sütun
-  sırası kullanıcının masaüstündeki kişisel Excel'in "Veri" sekmesiyle
-  **birebir aynı**: Hafta, Lig, İY, MS, İY/MS KG Oranı, 6+ Gol Oranı,
-  KG Var mı, İY/MS Çift — doğrudan aynı tabloya eklenebilsin diye.
-- Not: "Hafta" sütununda lig-fikstür-hafta no yerine gerçek maç tarihi
-  yazılıyor (Nesine canlı verisinde böyle bir bilgi yok).
+  yaptığı gibi küsüratsız (`Math.floor`) tutulur.
+- Veri havuzu sitesinin kendisi: kullanıcı adı+parola girişi (parola
+  SHA-256 hash'lenerek saklanır, giriş sonrası içeriden değiştirilebilir),
+  HAFTA/LİG/İY/MS/İY-MS-KG-EVET/6+GOL sütunlu tablo (KG çıkan MS hücreleri
+  yeşil), İY/MS KG ve 6+Gol oranları için 1-34 arası filtre.
 
 ## Kırmızı Bot Entegrasyonu (`/api/sinyal`)
 
