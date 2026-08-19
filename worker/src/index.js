@@ -311,23 +311,38 @@ async function canliyaTahminEkle(maclar, env) {
 
 // Kişisel veri havuzuna sadece bu 13 ligden maçlar eklenir — yabancı kupa/
 // playoff organizasyonları (ör. "Kazakistan Kupası", "Güney Kore Federasyon
-// Kupası") hariç tutulur. Değerler Nesine bülteninin "lig" alanıyla (bkz.
-// maclariIsle) birebir aynı yazılmalı.
-const IZIN_VERILEN_LIGLER = new Set([
-  "TÜRKİYE SÜPER LİG",
-  "İNGİLTERE PREMİER LİG",
-  "İSPANYA LA LİGA",
-  "İTALYA SERİ A",
-  "FRANSA LİGUE 1",
-  "HOLLANDA EREDİVİSİE",
-  "PORTEKİZ PREMİER LİG",
-  "S.ARABİSTAN PRO LİG",
-  "İSVEÇ ALLSVENSKAN",
-  "NORVEÇ ELİTESERİEN",
-  "FİNLANDİYA VEİKKAUSLİİGA",
-  "ÇİN SÜPER LİG",
-  "GÜNEY KORE K LİG",
+// Kupası") hariç tutulur. Nesine'nin "lig" alanı (bkz. ligAdiBul) sezon
+// aşamasına göre sona ek yapabiliyor (ör. "Norveç Eliteserien, Düş./Yük.",
+// "Finlandiya Veikkausliiga, Şamp. Gr.") — bu yüzden virgülden önceki kısım
+// baz alınıp karşılaştırılıyor. Hollanda Eredivisie, Portekiz Premier Lig ve
+// Güney Kore K Lig için Nesine'nin tam yazımı canlı bültenden doğrulanamadı
+// (fetch anında bu liglerden maç yoktu); bu üçü daha toleranslı anahtar
+// kelime eşleşmesiyle kontrol ediliyor — ilk kayıt oluştuğunda gerçek "lig"
+// değeri gözden geçirilip gerekirse ligIzinliMi kesinleştirilmeli.
+const IZIN_VERILEN_LIG_TEMEL_ADLARI = new Set([
+  "türkiye süper ligi",
+  "ingiltere premier lig",
+  "ispanya la liga",
+  "italya serie a",
+  "fransa ligue 1",
+  "suudi arabistan pro lig",
+  "isveç allsvenskan",
+  "norveç eliteserien",
+  "finlandiya veikkausliiga",
+  "çin süper lig",
 ]);
+const IZIN_VERILEN_LIG_ANAHTAR_KELIMELERI = [
+  ["hollanda", "eredivisie"],
+  ["portekiz", "premier"],
+  ["güney kore", "k lig"],
+];
+
+function ligIzinliMi(lig) {
+  const temel = String(lig || "").split(",")[0].replace(/\s+/g, " ").trim().toLocaleLowerCase("tr");
+  if (!temel) return false;
+  if (IZIN_VERILEN_LIG_TEMEL_ADLARI.has(temel)) return true;
+  return IZIN_VERILEN_LIG_ANAHTAR_KELIMELERI.some(([a, b]) => temel.includes(a) && temel.includes(b));
+}
 
 // Kickoff'tan itibaren bir lig maçının (uzatma/penaltı yok) büyük ihtimalle
 // bitmiş olacağı süre. havuzGuncelle bir maçı bu süre dolmadan hiç kontrol
@@ -360,7 +375,7 @@ async function snapshotAlVeYaz(env) {
     if (kalanDk < 0 || kalanDk > 2) continue; // sadece kickoff'a en fazla 2 dk kalan maçlar
     const kayit = { ...m, tahminZamani: toIstanbulIso(new Date()) };
     yazmalar.push(env.KG_SNAPSHOTS.put(m.id, JSON.stringify(kayit), { expirationTtl: 6 * 3600 }));
-    if (m.guven === "kesin" && IZIN_VERILEN_LIGLER.has(m.lig)) {
+    if (m.guven === "kesin" && ligIzinliMi(m.lig)) {
       yeniKesinler.push({ id: m.id, lig: m.lig, evSahibi: m.evSahibi, deplasman: m.deplasman, macZamani: m.macZamani });
     }
   }
