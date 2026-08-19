@@ -309,6 +309,32 @@ async function canliyaTahminEkle(maclar, env) {
   }));
 }
 
+// Kişisel veri havuzuna sadece bu 13 ligden maçlar eklenir — yabancı kupa/
+// playoff organizasyonları (ör. "Kazakistan Kupası", "Güney Kore Federasyon
+// Kupası") hariç tutulur. Değerler Nesine bülteninin "lig" alanıyla (bkz.
+// maclariIsle) birebir aynı yazılmalı.
+const IZIN_VERILEN_LIGLER = new Set([
+  "TÜRKİYE SÜPER LİG",
+  "İNGİLTERE PREMİER LİG",
+  "İSPANYA LA LİGA",
+  "İTALYA SERİ A",
+  "FRANSA LİGUE 1",
+  "HOLLANDA EREDİVİSİE",
+  "PORTEKİZ PREMİER LİG",
+  "S.ARABİSTAN PRO LİG",
+  "İSVEÇ ALLSVENSKAN",
+  "NORVEÇ ELİTESERİEN",
+  "FİNLANDİYA VEİKKAUSLİİGA",
+  "ÇİN SÜPER LİG",
+  "GÜNEY KORE K LİG",
+]);
+
+// Kickoff'tan itibaren bir lig maçının (uzatma/penaltı yok) büyük ihtimalle
+// bitmiş olacağı süre. havuzGuncelle bir maçı bu süre dolmadan hiç kontrol
+// etmez — donmuş maç öncesi oran zaten snapshot'a yazıldığından maçı canlıyken
+// dakika dakika izlemenin bir faydası yok.
+const MAC_TAHMINI_SURE_MS = 125 * 60 * 1000;
+
 // Her dakika (bkz. wrangler.toml [triggers]) çalışır: ön-maç bültenini çekip
 // kickoff'a 2 dakikadan az kalmış (ya da yeni başlamış) maçların o anki
 // KG/6+Gol/İY-MS-KG oranlarını KV'ye yazar — canlıya geçtiklerinde bu
@@ -334,7 +360,7 @@ async function snapshotAlVeYaz(env) {
     if (kalanDk < 0 || kalanDk > 2) continue; // sadece kickoff'a en fazla 2 dk kalan maçlar
     const kayit = { ...m, tahminZamani: toIstanbulIso(new Date()) };
     yazmalar.push(env.KG_SNAPSHOTS.put(m.id, JSON.stringify(kayit), { expirationTtl: 6 * 3600 }));
-    if (m.guven === "kesin") {
+    if (m.guven === "kesin" && IZIN_VERILEN_LIGLER.has(m.lig)) {
       yeniKesinler.push({ id: m.id, lig: m.lig, evSahibi: m.evSahibi, deplasman: m.deplasman, macZamani: m.macZamani });
     }
   }
@@ -342,9 +368,10 @@ async function snapshotAlVeYaz(env) {
   await kesinBekleyenEkle(env, yeniKesinler);
 }
 
-// Kişisel veri havuzu: maç öncesi "Kesin" olarak işaretlenmiş maçların id'lerini
-// havuz:bekleyen listesine ekler, böylece havuzGuncelle her dakika bu maçların
-// bitip bitmediğini kontrol edebilir. Id bazlı dedupe ile aynı maç iki kez
+// Kişisel veri havuzu: maç öncesi "Kesin" olarak işaretlenmiş (ve izin verilen
+// ligler listesindeki) maçları havuz:bekleyen listesine ekler — her maça,
+// tahmini bitiş saatini (kontrolZamani) de damgalar. havuzGuncelle bir maçı
+// bu saat gelmeden hiç sorgulamaz. Id bazlı dedupe ile aynı maç iki kez
 // eklenmez.
 async function kesinBekleyenEkle(env, yeniler) {
   if (!env || !env.KG_SNAPSHOTS || !yeniler || yeniler.length === 0) return;
@@ -352,11 +379,11 @@ async function kesinBekleyenEkle(env, yeniler) {
     const ham = await env.KG_SNAPSHOTS.get("havuz:bekleyen");
     const mevcut = ham ? JSON.parse(ham) : [];
     const idSeti = new Set(mevcut.map((k) => k.id));
-    const simdi = toIstanbulIso(new Date());
     let degisti = false;
     for (const y of yeniler) {
       if (!idSeti.has(y.id)) {
-        mevcut.push({ ...y, eklenmeZamani: simdi });
+        const macMs = new Date(y.macZamani).getTime();
+        mevcut.push({ ...y, kontrolZamani: Number.isFinite(macMs) ? macMs + MAC_TAHMINI_SURE_MS : null });
         idSeti.add(y.id);
         degisti = true;
       }
@@ -367,15 +394,19 @@ async function kesinBekleyenEkle(env, yeniler) {
   } catch (err) { /* sessizce vazgeç, gelecek dakika tekrar denenir */ }
 }
 
-// Her dakika snapshotAlVeYaz'dan sonra çalışır: havuz:bekleyen listesindeki
-// "Kesin" maçların bitip bitmediğini kontrol eder, bitenlerin gerçek sonucunu
-// (İY/MS skoru + maç öncesi son oran + KG var mı) kg-tahmin'in kendi
-// veri-havuzu sitesiyle (ayrı proje, GitHub'a bağlı değil) paylaşılan
-// HAVUZ_KV namespace'ine kalıcı olarak ekler — kg-tahmin sitesinde bu veriye
-// public erişim yok. Skor verisi eksik/geçersizse ya da maç öncesi oran
-// snapshot'ı bulunamıyorsa o maç sessizce atlanır — yarım/hatalı kayıt
-// asla yazılmaz. Mükerrer kayıt engeli (macId dedupe) tamamen KG_SNAPSHOTS
-// içinde (havuz:yazilanIdler), paylaşılan veriye macId hiç sızmaz.
+// Her dakika snapshotAlVeYaz'dan sonra çalışır. havuz:bekleyen listesindeki
+// "Kesin" maçları kickoff'tan itibaren dakika dakika İZLEMEZ — donmuş maç
+// öncesi oran zaten snapshot'a yazılmış olduğundan, bir maçın tahmini bitiş
+// saati (kontrolZamani, bkz. kesinBekleyenEkle) gelmeden ona hiç dokunmaz ve
+// canlı skor API'sini çağırmaz. O saat geldiğinde TEK bir kontrol yapılır:
+// maç gerçekten bitmişse gerçek sonucu (İY/MS skoru + maç öncesi son oran +
+// KG var mı) kg-tahmin'in kendi veri-havuzu sitesiyle (ayrı proje, GitHub'a
+// bağlı değil) paylaşılan HAVUZ_KV namespace'ine kalıcı olarak ekler —
+// kg-tahmin sitesinde bu veriye public erişim yok. Skor verisi eksik/
+// geçersizse ya da maç öncesi oran snapshot'ı bulunamıyorsa o maç sessizce
+// atlanır — yarım/hatalı kayıt asla yazılmaz. Mükerrer kayıt engeli (macId
+// dedupe) tamamen KG_SNAPSHOTS içinde (havuz:yazilanIdler), paylaşılan
+// veriye macId hiç sızmaz.
 async function havuzGuncelle(env) {
   if (!env || !env.KG_SNAPSHOTS || !env.HAVUZ_KV) return;
 
@@ -387,6 +418,13 @@ async function havuzGuncelle(env) {
     return;
   }
   if (!Array.isArray(bekleyen) || bekleyen.length === 0) return;
+
+  const simdiMs = Date.now();
+  // Tahmini bitiş saati henüz gelmemiş maçlara hiç dokunma — canlı skor
+  // API'si sadece gerçekten sırası gelen maç varsa çağrılır.
+  const siraGelenler = bekleyen.filter((b) => b.kontrolZamani != null && simdiMs >= b.kontrolZamani);
+  if (siraGelenler.length === 0) return;
+  const siraGelenSet = new Set(siraGelenler);
 
   let canliSkorVerisi;
   try {
@@ -400,25 +438,24 @@ async function havuzGuncelle(env) {
     if (c != null) skorMap.set(String(c), kayit);
   }
 
-  const simdiMs = Date.now();
-  const kalanlar = [];
+  const kalanlar = bekleyen.filter((b) => !siraGelenSet.has(b)); // sırası gelmeyenler değişmeden kalır
   const tamamlananlar = [];
 
-  for (const bek of bekleyen) {
+  for (const bek of siraGelenler) {
     try {
       const skorKayit = skorMap.get(String(bek.id));
       if (!skorKayit) {
-        const eklenmeMs = new Date(bek.eklenmeZamani).getTime();
-        if (Number.isFinite(eklenmeMs) && simdiMs - eklenmeMs > 6 * 3600 * 1000) {
-          continue; // 6 saattir sonuç alınamadı, vazgeç (listeyi sonsuza dek şişirmesin)
+        const macMs = new Date(bek.macZamani).getTime();
+        if (Number.isFinite(macMs) && simdiMs - macMs > 6 * 3600 * 1000) {
+          continue; // kickoff'tan 6 saat geçti, sonuç hiç gelmedi — vazgeç
         }
-        kalanlar.push(bek);
+        kalanlar.push(bek); // canlı bültende yok (gecikme/ertelenme olabilir), tekrar denenecek
         continue;
       }
 
       const dakika = dakikaHesapla(skorKayit, simdiMs);
       if (dakika !== null) {
-        kalanlar.push(bek); // hâlâ oynanıyor
+        kalanlar.push(bek); // tahmini süreye rağmen hâlâ oynanıyor (uzayan maç), tekrar denenecek
         continue;
       }
 
