@@ -454,6 +454,7 @@ async function havuzGuncelle(env) {
         iymsKgOran,
         altiGolOran,
         kgVar: skorEv > 0 && skorDep > 0,
+        eklenmeZamani: toIstanbulIso(new Date()),
       };
       tamamlananlar.push({ bek, kayitYeni });
     } catch (err) {
