@@ -12,6 +12,10 @@ fallthrough = true
 binding = "KG_SNAPSHOTS"
 id = "b175ff7362344b53ac47191d78d6b8a4"
 
+[[kv_namespaces]]
+binding = "HAVUZ_KV"
+id = "d1ac45f394a5488282625dbfef016636"
+
 [triggers]
 crons = ["* * * * *"]
 

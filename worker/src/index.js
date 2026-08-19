@@ -369,11 +369,15 @@ async function kesinBekleyenEkle(env, yeniler) {
 
 // Her dakika snapshotAlVeYaz'dan sonra çalışır: havuz:bekleyen listesindeki
 // "Kesin" maçların bitip bitmediğini kontrol eder, bitenlerin gerçek sonucunu
-// (İY/MS skoru + maç öncesi son oran + KG var mı) havuz:veri listesine kalıcı
-// olarak ekler. Skor verisi eksik/geçersizse ya da maç öncesi oran snapshot'ı
-// bulunamıyorsa o maç sessizce atlanır — yarım/hatalı kayıt asla yazılmaz.
+// (İY/MS skoru + maç öncesi son oran + KG var mı) kg-tahmin'in kendi
+// veri-havuzu sitesiyle (ayrı proje, GitHub'a bağlı değil) paylaşılan
+// HAVUZ_KV namespace'ine kalıcı olarak ekler — kg-tahmin sitesinde bu veriye
+// public erişim yok. Skor verisi eksik/geçersizse ya da maç öncesi oran
+// snapshot'ı bulunamıyorsa o maç sessizce atlanır — yarım/hatalı kayıt
+// asla yazılmaz. Mükerrer kayıt engeli (macId dedupe) tamamen KG_SNAPSHOTS
+// içinde (havuz:yazilanIdler), paylaşılan veriye macId hiç sızmaz.
 async function havuzGuncelle(env) {
-  if (!env || !env.KG_SNAPSHOTS) return;
+  if (!env || !env.KG_SNAPSHOTS || !env.HAVUZ_KV) return;
 
   let bekleyen;
   try {
@@ -439,19 +443,17 @@ async function havuzGuncelle(env) {
       // yaptığı gibi (Math.floor). Aynı formata uymak için burada da floor'luyoruz.
       const iymsKgOran = typeof snap.iymsKg === "number" ? Math.floor(snap.iymsKg) : null;
       const altiGolOran = typeof snap.altUst6 === "number" ? Math.floor(snap.altUst6) : null;
+      // Paylaşılan veri-havuzu sitesinin gösterdiği alanlarla birebir aynı —
+      // macId/evSahibi/deplasman/eklenmeZamani gibi iç muhasebe alanları
+      // paylaşılan veriye hiç yazılmaz.
       const kayitYeni = {
-        macId: bek.id,
+        hafta: (bek.macZamani || "").slice(0, 10) || null,
         lig: bek.lig,
-        evSahibi: bek.evSahibi,
-        deplasman: bek.deplasman,
-        tarih: (bek.macZamani || "").slice(0, 10) || null,
         iy: Number.isInteger(iyEv) && Number.isInteger(iyDep) ? `${iyEv}:${iyDep}` : null,
         ms: `${skorEv}:${skorDep}`,
         iymsKgOran,
         altiGolOran,
-        iymsKgCift: iymsKgOran != null && altiGolOran != null ? `${iymsKgOran},${altiGolOran}` : null,
         kgVar: skorEv > 0 && skorDep > 0,
-        eklenmeZamani: toIstanbulIso(new Date()),
       };
       tamamlananlar.push({ bek, kayitYeni });
     } catch (err) {
@@ -461,19 +463,23 @@ async function havuzGuncelle(env) {
 
   if (tamamlananlar.length > 0) {
     try {
-      const ham = await env.KG_SNAPSHOTS.get("havuz:veri");
-      const havuz = ham ? JSON.parse(ham) : [];
-      const idSeti = new Set(havuz.map((k) => k.macId));
-      for (const t of tamamlananlar) {
-        if (!idSeti.has(t.bek.id)) {
+      const idlerHam = await env.KG_SNAPSHOTS.get("havuz:yazilanIdler");
+      const yazilanIdler = new Set(idlerHam ? JSON.parse(idlerHam) : []);
+      const yazilacaklar = tamamlananlar.filter((t) => !yazilanIdler.has(t.bek.id));
+
+      if (yazilacaklar.length > 0) {
+        const ham = await env.HAVUZ_KV.get("veri");
+        const havuz = ham ? JSON.parse(ham) : [];
+        for (const t of yazilacaklar) {
           havuz.push(t.kayitYeni);
-          idSeti.add(t.bek.id);
+          yazilanIdler.add(t.bek.id);
         }
+        await env.HAVUZ_KV.put("veri", JSON.stringify(havuz));
+        await env.KG_SNAPSHOTS.put("havuz:yazilanIdler", JSON.stringify([...yazilanIdler]));
       }
-      await env.KG_SNAPSHOTS.put("havuz:veri", JSON.stringify(havuz));
     } catch (err) {
-      // havuz:veri'ye yazılamadı — bu maçları bekleyen listesine geri koy ki
-      // gelecek dakika tekrar denensin, veri kaybolmasın.
+      // Paylaşılan KV'ye yazılamadı — bu maçları bekleyen listesine geri koy
+      // ki gelecek dakika tekrar denensin, veri kaybolmasın.
       for (const t of tamamlananlar) kalanlar.push(t.bek);
       tamamlananlar.length = 0;
     }
@@ -707,19 +713,6 @@ export default {
 
     if (pathname === "/api/sinyal" && request.method === "POST") {
       return sinyalIsle(request, env);
-    }
-
-    if (pathname === "/api/havuz" && request.method === "GET") {
-      let kayitlar = [];
-      try {
-        if (env.KG_SNAPSHOTS) {
-          const ham = await env.KG_SNAPSHOTS.get("havuz:veri");
-          kayitlar = ham ? JSON.parse(ham) : [];
-        }
-      } catch (err) {
-        kayitlar = [];
-      }
-      return jsonResponse({ macSayisi: kayitlar.length, kayitlar });
     }
 
     if (pathname !== "/api/bulten" && pathname !== "/api/canli") {

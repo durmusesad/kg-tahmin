@@ -558,7 +558,6 @@
       <p class="sub">Nesine bülteninden İY/MS KG ve 6+ Gol oranlarının küsüratsız çiftini geçmiş maç verisiyle eşleştirip tutma oranına göre sıralar.</p>
     </div>
     <div class="top-actions">
-      <button class="icon-btn" id="havuzBtn">Veri Havuzu</button>
       <button class="icon-btn" id="themeBtn">Koyu Tema</button>
     </div>
   </div>
@@ -623,18 +622,6 @@
         </div>
         <button class="kupon-clear-btn" id="kuponClearBtn">Kuponu Temizle</button>
         <p class="kupon-note">Oranlar iddaa.com tahmini (Nesine × 1,037). Gerçek bahis değildir, sadece kazanç hesaplayıcıdır.</p>
-      </div>
-    </div>
-  </section>
-
-  <section id="havuzScreen" class="kupon-screen" hidden>
-    <button type="button" class="back-link" id="havuzBackBtn">‹ Bültene Dön</button>
-    <div class="kupon-screen-card">
-      <div class="kupon-head"><h2>Kişisel Veri Havuzu</h2></div>
-      <div class="kupon-calc">
-        <p class="kupon-note">Canlıda "Kesin" işaretlenen maçlar bittiğinde, maç öncesi son oranıyla birlikte gerçek sonucu (skor ve KG var mı) burada otomatik birikir. İndirilen CSV, kendi Excel tablonuzdaki sütunlarla (Hafta, Lig, İY, MS, İY/MS KG Oranı, 6+ Gol Oranı, KG Var mı, İY/MS Çift) birebir aynı — doğrudan aynı tabloya ekleyebilirsiniz.</p>
-        <div class="kupon-calc-row"><span>Toplam Kayıt</span><span class="v" id="havuzSayisi">0</span></div>
-        <button type="button" class="add-coupon-btn" id="havuzIndirBtn">CSV İndir</button>
       </div>
     </div>
   </section>
@@ -805,62 +792,6 @@
     $("bultenScreen").hidden = false;
   }
 
-  let havuzKayitlari = [];
-
-  function loadHavuz(){
-    return fetchJson(HAVUZ_ENDPOINT)
-      .then(data => {
-        havuzKayitlari = data.kayitlar || [];
-        $("havuzSayisi").textContent = String(havuzKayitlari.length);
-      })
-      .catch(() => {
-        havuzKayitlari = [];
-        $("havuzSayisi").textContent = "–";
-      });
-  }
-
-  function showHavuzScreen(){
-    $("bultenScreen").hidden = true;
-    $("havuzScreen").hidden = false;
-    loadHavuz();
-  }
-  function hideHavuzScreen(){
-    $("havuzScreen").hidden = true;
-    $("bultenScreen").hidden = false;
-  }
-
-  function havuzCsvIndir(){
-    // Kolon sırası kullanıcının kendi masaüstündeki Excel'in "Veri" sekmesiyle
-    // birebir aynı (Hafta sütununda lig-hafta no yerine gerçek maç tarihi var,
-    // Nesine canlı verisinde lig fikstür haftası bilgisi yok) — bu satırlar
-    // doğrudan aynı tabloya eklenebilsin diye.
-    const basliklar = ["Hafta","Lig","İY","MS","İY/MS KG Oranı","6+ Gol Oranı","KG Var mı","İY/MS Çift"];
-    const satirlar = [basliklar.join(";")];
-    for (const k of havuzKayitlari){
-      const kgVar = k.kgVar === true ? "Evet" : (k.kgVar === false ? "Hayır" : "");
-      satirlar.push([
-        k.tarih || "",
-        k.lig || "",
-        k.iy || "",
-        k.ms || "",
-        k.iymsKgOran != null ? k.iymsKgOran : "",
-        k.altiGolOran != null ? k.altiGolOran : "",
-        kgVar,
-        k.iymsKgCift || ""
-      ].join(";"));
-    }
-    const csv = String.fromCharCode(0xFEFF) + satirlar.join("\r\n"); // BOM: Excel Türkçe karakterleri doğru göstersin
-    const blob = new Blob([csv], {type: "text/csv;charset=utf-8;"});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "kg-tahmin-veri-havuzu.csv";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
-
   function removeFromKupon(id){
     const node = $("kuponList").querySelector('.kupon-item[data-id="' + CSS.escape(id) + '"]');
     const finish = () => {
@@ -888,10 +819,6 @@
     removeFromKupon(btn.dataset.id);
   });
   $("stakeInput").addEventListener("input", renderKuponCalc);
-
-  $("havuzBtn").addEventListener("click", showHavuzScreen);
-  $("havuzBackBtn").addEventListener("click", hideHavuzScreen);
-  $("havuzIndirBtn").addEventListener("click", havuzCsvIndir);
 
   loadKupon();
 
@@ -1151,7 +1078,6 @@
      Actions fallback'i yok, sistem tamamen Cloudflare üzerinde çalışır. */
   const LIVE_ENDPOINT = "/api/bulten";
   const LIVE_CANLI_ENDPOINT = "/api/canli";
-  const HAVUZ_ENDPOINT = "/api/havuz";
 
   function fetchJson(url){
     return fetch(url, {cache: "no-store"}).then(r => {
