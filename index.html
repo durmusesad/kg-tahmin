@@ -682,8 +682,8 @@
     rate_desc:  { label: "Tutma Oranı (Yüksek → Düşük)", cmp: (a,b) => (b.tutmaOrani ?? -1) - (a.tutmaOrani ?? -1) || (b.toplam ?? 0) - (a.toplam ?? 0) },
     rate_asc:   { label: "Tutma Oranı (Düşük → Yüksek)", cmp: (a,b) => (a.tutmaOrani ?? 2) - (b.tutmaOrani ?? 2) || (b.toplam ?? 0) - (a.toplam ?? 0) },
     time_asc:   { label: "Maç Saati (Yakın → Uzak)",     cmp: (a,b) => a.macZamani.localeCompare(b.macZamani) },
-    mskg_desc:  { label: "MS KG Oranı (Yüksek → Düşük)", cmp: (a,b) => (b.msKg ?? -1) - (a.msKg ?? -1) },
-    mskg_asc:   { label: "MS KG Oranı (Düşük → Yüksek)", cmp: (a,b) => (a.msKg ?? 999) - (b.msKg ?? 999) },
+    mskg_desc:  { label: "MS KG Oranı (Yüksek → Düşük)", cmp: (a,b) => ((b.canliMsKg ?? b.msKg) ?? -1) - ((a.canliMsKg ?? a.msKg) ?? -1) },
+    mskg_asc:   { label: "MS KG Oranı (Düşük → Yüksek)", cmp: (a,b) => ((a.canliMsKg ?? a.msKg) ?? 999) - ((b.canliMsKg ?? b.msKg) ?? 999) },
     gol6_desc:  { label: "6+ Gol Oranı (Yüksek → Düşük)", cmp: (a,b) => (b.altUst6 ?? -1) - (a.altUst6 ?? -1) },
     gol6_asc:   { label: "6+ Gol Oranı (Düşük → Yüksek)", cmp: (a,b) => (a.altUst6 ?? 999) - (b.altUst6 ?? 999) },
     iyms_desc:  { label: "İY/MS KG Oranı (Yüksek → Düşük)", cmp: (a,b) => (b.iymsKg ?? -1) - (a.iymsKg ?? -1) },
@@ -703,7 +703,7 @@
     kesin: "Geçmişte en az 3 kez denenmiş ve hepsinde (%100) karşılıklı gol çıkmış oran çiftleri.",
     olasi: "Geçmişte görülmüş ama 3 örnekten az, ya da %100'ün altında tutmuş oran çiftleri. Örnek sayısı düşük olanlarda oran güvenilir olmayabilir.",
     tum:   "Bültendeki tüm maçlar (geçmiş verisi olsun olmasın).",
-    canli: "Şu anda oynanan maçlar; dakika ve skor Nesine'nin canlı veri akışından alınır, en son başlayan üstte. KG/6+ Gol/İY-MS-KG oranları canlı sunulmadığı için maçın başlamasından hemen önceki son ön-maç değeridir — canlı güncellenmez, bilgi amaçlıdır, kupona eklenemez.",
+    canli: "Şu anda oynanan maçlar; dakika ve skor Nesine'nin canlı veri akışından alınır, en son başlayan üstte. Karşılıklı Gol (MS KG) oranı canlı ve güncel, kupona eklenebilir. 6+ Gol ve İY/MS KG oranları ise Nesine'nin canlıda hiç sunmadığı marketler olduğundan maçın başlamasından hemen önceki son ön-maç değeridir — sadece Kesin/Olası etiketinin dayanağıdır, canlı güncellenmez.",
   };
 
   /* ============== KUPON (kazanç hesaplayıcı) ============== */
@@ -727,8 +727,11 @@
     if (idx >= 0){
       kupon.splice(idx, 1);
     } else {
-      if (m.msKg == null) return;
-      kupon.push({ id: m.id, evSahibi: m.evSahibi, deplasman: m.deplasman, oran: iddaaOran(m.msKg) });
+      // Canlı maçlarda gerçek güncel oran m.canliMsKg'de; maç öncesi
+      // maçlarda bu alan hiç yok, o zaman donmuş m.msKg'ye düşülür.
+      const kgOran = m.canliMsKg ?? m.msKg;
+      if (kgOran == null) return;
+      kupon.push({ id: m.id, evSahibi: m.evSahibi, deplasman: m.deplasman, oran: iddaaOran(kgOran) });
     }
     saveKupon();
     renderKupon();
@@ -896,7 +899,9 @@
     const skorVar = m.skorEv != null && m.skorDep != null;
     const skorTxt = skorVar ? (m.skorEv + " - " + m.skorDep) : "–";
     const tier = m.guven; // "kesin" | "olasi" | null
-    const oranVar = m.msKg != null || m.altUst6 != null || m.iymsKg != null;
+    const donukOranVar = m.msKg != null || m.altUst6 != null || m.iymsKg != null;
+    const canliKgOran = m.canliMsKg; // her zaman güncel, dondurulmuş DEĞİL
+    const inKupon = isInKupon(m.id);
 
     let inner = '<div class="live-detail-note">🔴 Canlı · ' + escapeHtml(m.dakika) +
       (skorVar ? " · Skor " + skorTxt : "") + '</div>';
@@ -922,24 +927,32 @@
         statChip(tier + " pct", "Arşiv", m.tutma + "/" + m.toplam + " · %" + pct) +
         '</div>';
     }
-    if (oranVar){
+    if (canliKgOran != null || donukOranVar){
       inner += '<div class="chip-row">' +
-        oddChip("MS KG", m.msKg) +
-        oddChip("6+ Gol", m.altUst6) +
-        oddChip("İY/MS KG", m.iymsKg) +
+        oddChip(canliKgOran != null ? "MS KG · Canlı" : "MS KG", canliKgOran != null ? canliKgOran : m.msKg) +
+        (donukOranVar ? oddChip("6+ Gol", m.altUst6) + oddChip("İY/MS KG", m.iymsKg) : "") +
         '</div>';
-      inner += '<p class="section-note" style="margin:8px 4px 0;">Bu oranlar maçın başlamasından hemen önceki son ön-maç değeridir' +
+    }
+    if (canliKgOran != null){
+      inner += '<button type="button" class="add-coupon-btn' + (inKupon ? " added" : "") + '" data-id="' + escapeHtml(m.id) + '">' +
+        (inKupon ? "Kuponda ✓ — Kaldırmak için dokun" : "Kupona Ekle (Karşılıklı Gol · Var, ~" + fmtOdd(iddaaOran(canliKgOran)) + ")") +
+        '</button>';
+    }
+    if (donukOranVar){
+      inner += '<p class="section-note" style="margin:8px 4px 0;">6+ Gol ve İY/MS KG oranları Nesine\'nin canlıda hiç sunmadığı marketler olduğundan maçın başlamasından hemen önceki son ön-maç değeridir' +
         (m.tahminZamani ? " (" + fmtKickoff(m.tahminZamani) + ")" : "") +
-        ', canlı güncellenmez. Bilgi amaçlıdır, kupona eklenemez.</p>';
-    } else {
-      inner += '<p class="section-note" style="margin:8px 4px 0;">Bu maç için Nesine\'de KG/6+ Gol/İY-MS-KG oranı hiç açılmamış — genellikle düşük profilli/alt lig maçlarında görülür, sistemsel bir sorun değildir.</p>';
+        ' — sadece Kesin/Olası etiketinin dayanağıdır, canlı güncellenmez.' +
+        (canliKgOran == null ? " MS KG oranı da bu maçta canlıda kapalı." : " MS KG oranı ise canlı ve güncel, kupona eklenebilir.") + '</p>';
+    } else if (canliKgOran == null){
+      inner += '<p class="section-note" style="margin:8px 4px 0;">Bu maç için Nesine\'de Karşılıklı Gol/6+ Gol/İY-MS-KG oranı hiç açılmamış — genellikle düşük profilli/alt lig maçlarında görülür, sistemsel bir sorun değildir.</p>';
     }
 
     let html = '<div class="match-card' + (tier ? " tier-" + tier : "") + (m.kirmiziSinyal ? " tier-kirmizi" : "") + (expandedIds.has(m.id) ? " expanded" : "") + '">';
     html += '<button type="button" class="card-head">' +
       '<div class="match-top"><span class="league">' + escapeHtml(m.lig) +
         (m.kirmiziSinyal ? ' <span class="kirmizi-badge">🔴 Sinyal</span>' : "") + '</span>' +
-        '<span class="kickoff-wrap"><span class="live-badge"><span class="live-dot"></span>' + escapeHtml(m.dakika) + '</span></span></div>' +
+        '<span class="kickoff-wrap">' + (inKupon ? '<span class="in-kupon-dot" title="Kuponda"></span>' : "") +
+        '<span class="live-badge"><span class="live-dot"></span>' + escapeHtml(m.dakika) + '</span></span></div>' +
       '<div class="teams-row"><span class="teams">' + escapeHtml(m.evSahibi) +
         (skorVar ? ' <span class="live-score">' + skorTxt + '</span> ' : ' — ') +
         escapeHtml(m.deplasman) + '</span>' +
@@ -1006,7 +1019,7 @@
   $("list").addEventListener("click", (ev) => {
     const addBtn = ev.target.closest(".add-coupon-btn");
     if (addBtn){
-      const m = allMatches.find(x => x.id === addBtn.dataset.id);
+      const m = allMatches.find(x => x.id === addBtn.dataset.id) || liveMatches.find(x => x.id === addBtn.dataset.id);
       if (m) toggleKupon(m);
       return;
     }

@@ -264,6 +264,11 @@ function canliMaclariIsle(canliBultenVerisi, canliSkorVerisi) {
       dakika,
       skorEv,
       skorDep,
+      // Nesine canlıda "Karşılıklı Gol" marketini ön-maçtakinden (MTID 38)
+      // FARKLI bir kod altında (MTID 287) sunuyor — 6+ Gol ve İY/MS KG'nin
+      // aksine bunun gerçek bir canlı karşılığı var, doğrulandı. Bu değer
+      // maç boyunca güncel kalır (donmuş snapshot DEĞİL).
+      canliMsKg: oranBul(e.MA || [], 287, 0.0, 1),
     });
   }
 
@@ -271,11 +276,16 @@ function canliMaclariIsle(canliBultenVerisi, canliSkorVerisi) {
   return maclar;
 }
 
-// Canlı bültende KG/6+Gol/İY-MS-KG marketleri hiç sunulmuyor (Nesine'nin
-// in-play market kataloğunda yoklar). Bu yüzden her maçın başlamasından
-// hemen önceki son ön-maç oranı `snapshotAlVeYaz` tarafından KV'ye yazılır;
-// burada o donmuş anlık görüntü okunup maça eklenir ve aynı geçmiş-veri
-// tablosuyla Kesin/Olası hesaplanır.
+// Canlı bültende 6+ Gol ve İY/MS KG marketleri hiç sunulmuyor (Nesine'nin
+// in-play market kataloğunda yoklar) — bu yüzden Kesin/Olası sınıflandırması
+// (bu iki oranın çiftine dayandığından) canlıda hesaplanamaz; her maçın
+// başlamasından hemen önceki son ön-maç oranı `snapshotAlVeYaz` tarafından
+// KV'ye yazılır, burada o donmuş anlık görüntü okunup maça eklenir ve aynı
+// geçmiş-veri tablosuyla Kesin/Olası hesaplanır. (Ayrıntı: bu maçlar zaten
+// KESİN etiketini maç öncesi almıştı; sınıflandırma sonradan değişmez.)
+// Karşılıklı Gol (MS KG) marketi ise canlıda GERÇEKTEN var (farklı MTID,
+// bkz. canliMaclariIsle) — o değer `m.canliMsKg` üzerinden zaten güncel
+// geliyor, burada dokunulmuyor/ezilmiyor.
 async function canliyaTahminEkle(maclar, env) {
   const bosTahmin = {
     msKg: null, altUst6: null, iymsKg: null,
