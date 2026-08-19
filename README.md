@@ -126,6 +126,36 @@ tahminindeki gibi.
     cron tik'i ⇒ günlük ~500 yazma, Workers KV free plan'ın (1000/gün)
     altında kalacak şekilde tasarlandı.
 
+## Kişisel Veri Havuzu (`/api/havuz`)
+
+Canlıda **Kesin** işaretlenen maçların (maç öncesi son oranla İY/MS-KG ve
+6+Gol çiftinin geçmişte %100 tuttuğu maçlar) gerçek sonucu, maç bittiğinde
+otomatik olarak kalıcı bir listeye ekleniyor — kullanıcının kendi büyüyen
+tahmin veri seti, `data/historical_stats.json`'ın kaynağı olan Excel
+tablosuna benzer ama tamamen bu sistemin ürettiği veri.
+
+- `snapshotAlVeYaz` bir maçı "kesin" olarak snapshot'larken, o maçın id'sini
+  ayrıca `havuz:bekleyen` KV listesine ekler (`kesinBekleyenEkle`).
+- Her cron tick'inde (`havuzGuncelle`) bu bekleyen maçların canlı skor
+  feed'inde bitip bitmediği kontrol edilir — **aynı, zaten doğrulanmış**
+  `dakikaHesapla`/`canliSkorHesapla` fonksiyonları kullanılır, yeni bir
+  "maç bitti mi" mantığı icat edilmez.
+- Maç bittiğinde: MS skoru geçersizse ya da maç öncesi oran snapshot'ı
+  (`KG_SNAPSHOTS.get(macId)`) bulunamıyorsa kayıt **hiç yazılmaz** — yarım
+  veya oransız satır riski yok. Geçerliyse İY skoru (`ilkYariSkorHesapla`),
+  MS skoru, maç öncesi İY/MS-KG ve 6+Gol oranı, KG var mı (`kgVar`) bilgisiyle
+  birlikte `havuz:veri` KV listesine eklenir (macId bazlı dedupe — mükerrer
+  kayıt yok).
+- Bir maç 6 saat içinde canlı feed'de hiç bulunamaz ya da bitmezse
+  `havuz:bekleyen`den düşürülür (kaybolan/ertelenen maçlar listeyi sonsuza
+  dek şişirmesin diye).
+- `GET /api/havuz` → `{ macSayisi, kayitlar: [...] }` döner. Site üzerinde
+  "Veri Havuzu" ekranından bu kayıtlar CSV olarak indirilebilir (sütunlar:
+  Tarih, Lig, İY, MS, İY/MS KG Oranı, 6+ Gol Oranı, KG Var mı — kullanıcının
+  masaüstündeki kişisel Excel kopyasıyla aynı format).
+- Not: "Hafta" sütunu yok — Nesine canlı verisinde lig-fikstür-hafta bilgisi
+  bulunmadığı için onun yerine gerçek maç tarihi yazılıyor.
+
 ## Kırmızı Bot Entegrasyonu (`/api/sinyal`)
 
 Ayrı bir repo olan **kırmızı bot** (`drms02/k-rm-z-`, DigitalOcean'da 7/24
