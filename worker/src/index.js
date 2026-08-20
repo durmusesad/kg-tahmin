@@ -24,12 +24,21 @@ const CORS_HEADERS = {
 
 const gecmis = gecmisData.ciftler || {};
 
-function ligAdiBul(ligler, lc) {
-  const lcStr = String(lc ?? "");
-  for (const lig of ligler) {
-    if (String(lig.LID ?? "") === lcStr) return lig.N || "Bilinmiyor";
+// Nesine bülteni tek çekimde 100+ lig ve 100+ maç içerebiliyor; her maç için
+// lig dizisinde baştan tarama yapmak (O(maç×lig)) CPU'yu gereksiz yere
+// zorluyor. Bunun yerine LID -> isim haritası bir kez kurulup O(1) ile
+// aranıyor (bkz. ligHaritasiOlustur, maclariIsle/canliMaclariIsle'da
+// döngüden önce bir kez çağrılır).
+function ligHaritasiOlustur(ligler) {
+  const harita = new Map();
+  for (const lig of ligler || []) {
+    harita.set(String(lig.LID ?? ""), lig.N || "Bilinmiyor");
   }
-  return "Bilinmiyor";
+  return harita;
+}
+
+function ligAdiBul(ligHaritasi, lc) {
+  return ligHaritasi.get(String(lc ?? "")) || "Bilinmiyor";
 }
 
 function esdToDate(esdMs) {
@@ -122,7 +131,7 @@ function tahminAlanlariCikar(ma) {
 function maclariIsle(veri) {
   const sg = veri.sg || {};
   const etkinlikler = sg.EA || [];
-  const ligler = sg.LA || [];
+  const ligHaritasi = ligHaritasiOlustur(sg.LA || []);
   const simdi = Date.now();
 
   const maclar = [];
@@ -138,7 +147,7 @@ function maclariIsle(veri) {
 
     maclar.push({
       id: String(e.C ?? ""),
-      lig: ligAdiBul(ligler, e.LC),
+      lig: ligAdiBul(ligHaritasi, e.LC),
       evSahibi,
       deplasman,
       macZamani: toIstanbulIso(macZamaniDate),
@@ -228,7 +237,7 @@ function ilkYariSkorHesapla(kayit) {
 function canliMaclariIsle(canliBultenVerisi, canliSkorVerisi) {
   const sg = canliBultenVerisi.sg || {};
   const etkinlikler = sg.EA || [];
-  const ligler = sg.LA || [];
+  const ligHaritasi = ligHaritasiOlustur(sg.LA || []);
   const simdiMs = Date.now();
 
   const skorMap = new Map();
@@ -257,7 +266,7 @@ function canliMaclariIsle(canliBultenVerisi, canliSkorVerisi) {
 
     maclar.push({
       id: String(e.C ?? ""),
-      lig: ligAdiBul(ligler, e.LC),
+      lig: ligAdiBul(ligHaritasi, e.LC),
       evSahibi,
       deplasman,
       macZamani: macZamaniDate ? toIstanbulIso(macZamaniDate) : null,

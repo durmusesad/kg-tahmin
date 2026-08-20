@@ -17,7 +17,11 @@ binding = "HAVUZ_KV"
 id = "d1ac45f394a5488282625dbfef016636"
 
 [triggers]
-crons = ["* * * * *"]
+# Cloudflare cron tetikleyicileri UTC'de çalışır. Türkiye UTC+3 (DST yok,
+# sabit) olduğundan gece 03:00-08:59 TR (=00:00-05:59 UTC) arası neredeyse
+# hiç canlı maç olmadığından worker'ı uyutuyoruz — CPU limitine takılma
+# riskini azaltmak için gereksiz tick sayısını (günün %25'i) tamamen keser.
+crons = ["* 6-23 * * *"]
 
 [observability]
 enabled = true
