@@ -655,6 +655,9 @@ async function gunlukBultenEkle(env, maclar) {
     const kalanDk = (macMs - simdiMs) / 60000;
     if (kalanDk < 0 || kalanDk > 2) continue;
     if (gunluk[m.id]) continue; // zaten donduruldu
+    // İkisi de yoksa bu maç zaten hiçbir zaman haftalığa yazılamaz (cift
+    // anahtarı için ikisi de şart) — günlük bültene hiç eklenmesin.
+    if (typeof m.iymsKg !== "number" || typeof m.altUst6 !== "number") continue;
 
     gunluk[m.id] = {
       id: m.id,
