@@ -6,7 +6,6 @@
 import gecmisData from "../../data/historical_stats.json";
 import indexHtml from "../../index.html";
 
-const BULTEN_URL = "https://cdnbulten.nesine.com/api/bulten/getprebultenfull";
 const LIVE_BULTEN_URL = "https://bulten.nesine.com/api/bulten/getlivebultenv3?eventVersion=0&oddVersion=0";
 const LIVE_SCORE_URL = "https://ls.nesine.com/api/v2/Bet/GetLiveBetResultsWithVersion?v=0";
 const HEADERS = {
@@ -93,26 +92,78 @@ function toIstanbulIso(date) {
   );
 }
 
-async function bultenCek() {
-  const resp = await fetch(BULTEN_URL, { headers: HEADERS });
-  if (!resp.ok) throw new Error("HTTP " + resp.status);
-  return resp.json();
+// ============================================================
+// BÜLTEN PUSH (kırmızı bot -> Worker), 2026-08-22
+// Nesine'nin ~7-8MB'lık getprebultenfull JSON'unu Worker'ın kendisi ARTIK
+// ÇEKMİYOR — Cloudflare Workers free plan'ın istek/cron-tick başına 10ms
+// CPU süresi limitine takılıyordu (sadece JSON.parse ~30ms sürüyor). Bunun
+// yerine kırmızı bot (DigitalOcean, CPU süresi sınırı yok) bülteni çekip
+// futbol maçlarını (id, lig, evSahibi, deplasman, macZamani, msKg, altUst6,
+// iymsKg) çıkarıp her 60sn'de POST /api/bulten-guncelle ile buraya gönderir;
+// biz KV'ye yazıp hem GET /api/bulten'de hem cron'daki snapshot/havuz/günlük
+// bülten mantığında oradan okuruz. guven (Kesin/Olası) hesaplaması (küçük
+// veri üzerinde ucuz) burada, guvenHesapla() ile yapılır.
+const BULTEN_KV_ANAHTARI = "bulten:guncel";
+const BULTEN_MAX_YAS_MS = 15 * 60 * 1000;
+
+async function bultenGuncelleIsle(request, env) {
+  const anahtar = request.headers.get("X-Bulten-Key");
+  if (!env.BULTEN_ANAHTARI || anahtar !== env.BULTEN_ANAHTARI) {
+    return jsonResponse({ hata: "yetkisiz" }, 401);
+  }
+  let govde;
+  try {
+    govde = await request.json();
+  } catch (err) {
+    return jsonResponse({ hata: "gecersiz govde" }, 400);
+  }
+  const maclar = govde && govde.maclar;
+  if (!Array.isArray(maclar)) {
+    return jsonResponse({ hata: "maclar dizisi zorunlu" }, 400);
+  }
+  if (maclar.length > 5000) {
+    return jsonResponse({ hata: "mac sayisi cok fazla" }, 400);
+  }
+  const kayit = {
+    guncellemeZamani: govde.guncellemeZamani || toIstanbulIso(new Date()),
+    alinmaZamaniMs: Date.now(),
+    maclar,
+  };
+  if (!env.KG_SNAPSHOTS) return jsonResponse({ hata: "KV yapilandirilmamis" }, 500);
+  await env.KG_SNAPSHOTS.put(BULTEN_KV_ANAHTARI, JSON.stringify(kayit));
+  return jsonResponse({ alindi: true, macSayisi: maclar.length });
 }
 
-// Bir etkinliğin MA (market) listesinden KG tahmin alanlarını (msKg, altUst6,
-// iymsKg, onerilen, tutma, toplam, tutmaOrani, guven) çıkarır. Hem ön-maç hem
-// canlı (henüz ön-bültenden düşmemiş, donmuş oranlı) maçlarda ortak kullanılır.
-function tahminAlanlariCikar(ma) {
-  const msKg = oranBul(ma, 38, 0.0, 1);
-  const altUst6 = oranBul(ma, 43, 0.0, 4);
-  const iymsKg = oranBul(ma, 801, 0.0, 3);
+// KV'den kırmızı bot'un pushladığı en güncel maç listesini okur. Veri hiç
+// yoksa ya da 15dk'dan eskiyse null döner (bulten:guncel bayat/kayıp demek).
+async function guncelMaclariAl(env) {
+  if (!env.KG_SNAPSHOTS) return null;
+  let ham;
+  try {
+    ham = await env.KG_SNAPSHOTS.get(BULTEN_KV_ANAHTARI);
+  } catch (err) {
+    return null;
+  }
+  if (!ham) return null;
+  let kayit;
+  try {
+    kayit = JSON.parse(ham);
+  } catch (err) {
+    return null;
+  }
+  if (Date.now() - (kayit.alinmaZamaniMs || 0) > BULTEN_MAX_YAS_MS) return null;
+  return { maclar: kayit.maclar || [], guncellemeZamani: kayit.guncellemeZamani };
+}
 
+// KG/6+Gol/İY-MS-KG oranlarından (zaten çıkarılmış) güven sınıflandırmasını
+// hesaplar — hem kırmızı bot'tan gelen ham oranlar hem de (canlı sekmesinde
+// hâlâ kullanılan) MA dizisinden çıkarılan oranlar için ortak kullanılır.
+function guvenHesapla(msKg, altUst6, iymsKg) {
   let onerilen = false;
   let tutma = null;
   let toplam = null;
   let tutmaOrani = null;
   let guven = null;
-
   if (iymsKg !== null && altUst6 !== null) {
     const ciftAnahtari = `${Math.floor(iymsKg)},${Math.floor(altUst6)}`;
     const istatistik = gecmis[ciftAnahtari];
@@ -124,51 +175,39 @@ function tahminAlanlariCikar(ma) {
       guven = toplam >= 3 && tutmaOrani === 1.0 ? "kesin" : "olasi";
     }
   }
-
   return { msKg, altUst6, iymsKg, onerilen, tutma, toplam, tutmaOrani, guven };
 }
 
-function maclariIsle(veri) {
-  const sg = veri.sg || {};
-  const etkinlikler = sg.EA || [];
-  const ligHaritasi = ligHaritasiOlustur(sg.LA || []);
-  const simdi = Date.now();
+// NOT (2026-08-22): Nesine'nin canlı uç noktaları ara sıra ciddi şekilde
+// yavaşlıyor/tıkanıyor (gözlemlendi: getlivebultenv3 header'ları hızlı dönüp
+// gövdeyi hiç akıtmaması — bağlantı açık kalıyor, veri gelmiyor). fetch()'in
+// kendisinde hiç zaman aşımı yoktu — Worker isteği SONSUZA KADAR bekliyordu.
+// ÖNEMLİ: AbortController'ın signal'i sadece `fetch()` çağrısını değil,
+// `resp.json()` (gövdeyi okuma) aşamasını da kapsamalı — ilk denemede
+// clearTimeout'u fetch() resolve olur olmaz (header geldiğinde) çağırmıştım,
+// bu da gövde okuma aşamasını korumasız bırakıp aynı sonsuz-bekleme hatasını
+// tekrarlıyordu. Şimdi tek fonksiyon, tek controller: 8sn'lik üst sınır
+// fetch+parse'ın TAMAMINI kapsıyor.
+const FETCH_ZAMAN_ASIMI_MS = 8000;
 
-  const maclar = [];
-  for (const e of etkinlikler) {
-    if (e.GT !== 1) continue;
-
-    const evSahibi = String(e.HN ?? "").trim();
-    const deplasman = String(e.AN ?? "").trim();
-    if (!evSahibi || !deplasman) continue;
-
-    const macZamaniDate = esdToDate(e.ESD);
-    if (!macZamaniDate || macZamaniDate.getTime() < simdi) continue;
-
-    maclar.push({
-      id: String(e.C ?? ""),
-      lig: ligAdiBul(ligHaritasi, e.LC),
-      evSahibi,
-      deplasman,
-      macZamani: toIstanbulIso(macZamaniDate),
-      ...tahminAlanlariCikar(e.MA || []),
-    });
+async function zamanAsimliJsonFetch(url, opts) {
+  const controller = new AbortController();
+  const zamanlayici = setTimeout(() => controller.abort(), FETCH_ZAMAN_ASIMI_MS);
+  try {
+    const resp = await fetch(url, { ...opts, signal: controller.signal });
+    if (!resp.ok) throw new Error("HTTP " + resp.status);
+    return await resp.json();
+  } finally {
+    clearTimeout(zamanlayici);
   }
-
-  maclar.sort((a, b) => a.macZamani.localeCompare(b.macZamani));
-  return maclar;
 }
 
 async function canliBultenCek() {
-  const resp = await fetch(LIVE_BULTEN_URL, { headers: HEADERS });
-  if (!resp.ok) throw new Error("HTTP " + resp.status);
-  return resp.json();
+  return zamanAsimliJsonFetch(LIVE_BULTEN_URL, { headers: HEADERS });
 }
 
 async function canliSkorCek() {
-  const resp = await fetch(LIVE_SCORE_URL, { headers: HEADERS });
-  if (!resp.ok) throw new Error("HTTP " + resp.status);
-  return resp.json();
+  return zamanAsimliJsonFetch(LIVE_SCORE_URL, { headers: HEADERS });
 }
 
 // Nesine'nin MDT alanındaki devre başlangıç/bitiş zaman damgalarını T koduna göre eşler:
@@ -205,33 +244,37 @@ function dakikaHesapla(kayit, simdiMs) {
   return null;
 }
 
+// DÜZELTME (2026-08-22): Nesine'nin canlı skor feed'indeki ES alanı, gerçek
+// veriyle ölçülerek doğrulandı — T=1/2/3 BİRBİRİNİN TOPLANACAĞI parçalar
+// DEĞİL, aynı skorun farklı "an"lardaki kopyaları:
+//   T=1: o ana kadarki/nihai TOPLAM skor (canlı günceller, maç bitince nihai kalır)
+//   T=2: sadece ilk yarı bitince beliren, bir daha değişmeyen İY skoru
+//   T=3: ikinci yarı bitince beliren, T=1 ile AYNI (nihai) skor
+// Eski kod bunları TOPLUYORDU (T1+T2+T3) — bu, biten bir maçta gerçek skoru
+// 2-3 katına çıkarıyordu (ör. gerçek 0:4 → kaydedilen 0:11 gibi saçma
+// sonuçlar; "kişisel veri havuzu"nda görülen anomalinin kök nedeni buydu).
+// Artık MS (nihai/güncel) skor için sadece T=1 okunuyor, toplama yok.
 function canliSkorHesapla(kayit) {
-  let toplamEv = 0, toplamDep = 0, goruldu = false;
-  for (const es of kayit.ES || []) {
-    if (es.T === 1 || es.T === 2 || es.T === 3) {
-      const h = Number(es.H ?? 0), a = Number(es.A ?? 0);
-      if (Number.isFinite(h) && Number.isFinite(a)) {
-        toplamEv += h; toplamDep += a; goruldu = true;
-      }
-    }
-  }
-  return goruldu ? [toplamEv, toplamDep] : [null, null];
-}
-
-// canliSkorHesapla'nın aynısı ama sadece ilk yarıya ait (T===1) ES kaydını
-// toplar — kişisel veri havuzu için İY skoru çıkarmakta kullanılır. Veri
-// yoksa [null, null] döner (bloklamaz, sadece İY hücresi boş kalır).
-function ilkYariSkorHesapla(kayit) {
-  let toplamEv = 0, toplamDep = 0, goruldu = false;
   for (const es of kayit.ES || []) {
     if (es.T === 1) {
       const h = Number(es.H ?? 0), a = Number(es.A ?? 0);
-      if (Number.isFinite(h) && Number.isFinite(a)) {
-        toplamEv += h; toplamDep += a; goruldu = true;
-      }
+      if (Number.isFinite(h) && Number.isFinite(a)) return [h, a];
     }
   }
-  return goruldu ? [toplamEv, toplamDep] : [null, null];
+  return [null, null];
+}
+
+// İlk yarı (İY) skoru için T=2 okunur — T=1 DEĞİL (T=1 güncel/nihai toplam
+// skordur, İY değil; eski kod yanlışlıkla T=1'i "İY" sanıyordu). Maç henüz
+// ilk yarıyı bitirmediyse (T=2 hiç yoksa) [null, null] döner.
+function ilkYariSkorHesapla(kayit) {
+  for (const es of kayit.ES || []) {
+    if (es.T === 2) {
+      const h = Number(es.H ?? 0), a = Number(es.A ?? 0);
+      if (Number.isFinite(h) && Number.isFinite(a)) return [h, a];
+    }
+  }
+  return [null, null];
 }
 
 function canliMaclariIsle(canliBultenVerisi, canliSkorVerisi) {
@@ -369,32 +412,29 @@ function ligIzinliMi(lig) {
 // dakika dakika izlemenin bir faydası yok.
 const MAC_TAHMINI_SURE_MS = 125 * 60 * 1000;
 
-// Her dakika (bkz. wrangler.toml [triggers]) çalışır: ön-maç bültenini çekip
-// kickoff'a 2 dakikadan az kalmış (ya da yeni başlamış) maçların o anki
-// KG/6+Gol/İY-MS-KG oranlarını KV'ye yazar — canlıya geçtiklerinde bu
-// "maç öncesi son oran" anlık görüntüsü kullanılabilsin diye.
-async function snapshotAlVeYaz(env) {
-  if (!env || !env.KG_SNAPSHOTS) return;
-  let veri;
-  try {
-    veri = await bultenCek();
-  } catch (err) {
-    return; // sessizce vazgeç, bir dakika sonra tekrar denenecek
-  }
-  const maclar = maclariIsle(veri);
+// Her dakika (bkz. wrangler.toml [triggers]) çalışır: kırmızı bot'un push
+// ettiği güncel maç listesini (KV, bkz. guncelMaclariAl) okuyup kickoff'a 2
+// dakikadan az kalmış (ya da yeni başlamış) maçların o anki KG/6+Gol/
+// İY-MS-KG oranlarını KV'ye yazar — canlıya geçtiklerinde bu "maç öncesi son
+// oran" anlık görüntüsü kullanılabilsin diye. `maclar` parametresi scheduled()
+// tarafından bir kez okunup hem buraya hem gunlukBultenEkle'ye paslanır —
+// aynı KV değeri iki kez okunmaz.
+async function snapshotAlVeYaz(env, maclar) {
+  if (!env || !env.KG_SNAPSHOTS || !maclar) return;
   const simdiMs = Date.now();
 
   const yazmalar = [];
   const yeniKesinler = [];
   for (const m of maclar) {
-    if (m.msKg == null && m.altUst6 == null && m.iymsKg == null) continue; // hiç market yoksa saklamaya değmez
+    const tahmin = guvenHesapla(m.msKg, m.altUst6, m.iymsKg);
+    if (tahmin.msKg == null && tahmin.altUst6 == null && tahmin.iymsKg == null) continue; // hiç market yoksa saklamaya değmez
     const macMs = new Date(m.macZamani).getTime();
     if (!Number.isFinite(macMs)) continue;
     const kalanDk = (macMs - simdiMs) / 60000;
     if (kalanDk < 0 || kalanDk > 2) continue; // sadece kickoff'a en fazla 2 dk kalan maçlar
-    const kayit = { ...m, tahminZamani: toIstanbulIso(new Date()) };
+    const kayit = { ...m, ...tahmin, tahminZamani: toIstanbulIso(new Date()) };
     yazmalar.push(env.KG_SNAPSHOTS.put(m.id, JSON.stringify(kayit), { expirationTtl: 6 * 3600 }));
-    if (m.guven === "kesin" && ligIzinliMi(m.lig)) {
+    if (tahmin.guven === "kesin" && ligIzinliMi(m.lig)) {
       yeniKesinler.push({ id: m.id, lig: m.lig, evSahibi: m.evSahibi, deplasman: m.deplasman, macZamani: m.macZamani });
     }
   }
@@ -441,8 +481,8 @@ async function kesinBekleyenEkle(env, yeniler) {
 // atlanır — yarım/hatalı kayıt asla yazılmaz. Mükerrer kayıt engeli (macId
 // dedupe) tamamen KG_SNAPSHOTS içinde (havuz:yazilanIdler), paylaşılan
 // veriye macId hiç sızmaz.
-async function havuzGuncelle(env) {
-  if (!env || !env.KG_SNAPSHOTS || !env.HAVUZ_KV) return;
+async function havuzGuncelle(env, canliSkorVerisi) {
+  if (!env || !env.KG_SNAPSHOTS || !env.HAVUZ_KV || !canliSkorVerisi) return;
 
   let bekleyen;
   try {
@@ -454,20 +494,13 @@ async function havuzGuncelle(env) {
   if (!Array.isArray(bekleyen) || bekleyen.length === 0) return;
 
   const simdiMs = Date.now();
-  // Tahmini bitiş saati henüz gelmemiş maçlara hiç dokunma — canlı skor
-  // API'si sadece gerçekten sırası gelen maç varsa çağrılır.
+  // Tahmini bitiş saati henüz gelmemiş maçlara hiç dokunma.
   const siraGelenler = bekleyen.filter((b) => b.kontrolZamani != null && simdiMs >= b.kontrolZamani);
   if (siraGelenler.length === 0) return;
   const siraGelenSet = new Set(siraGelenler);
 
-  let canliSkorVerisi;
-  try {
-    canliSkorVerisi = await canliSkorCek();
-  } catch (err) {
-    return; // gelecek dakika tekrar denenecek
-  }
   const skorMap = new Map();
-  for (const kayit of (canliSkorVerisi && canliSkorVerisi.d) || []) {
+  for (const kayit of canliSkorVerisi.d || []) {
     const c = kayit.C ?? kayit.NID;
     if (c != null) skorMap.set(String(c), kayit);
   }
@@ -586,6 +619,180 @@ async function havuzGuncelle(env) {
   try {
     await env.KG_SNAPSHOTS.put("havuz:bekleyen", JSON.stringify(kalanlar));
   } catch (err) { /* sessizce vazgeç, gelecek dakika tekrar denenir */ }
+}
+
+// ============================================================
+// GÜNLÜK BÜLTEN + HAFTALIK (2026-08-22)
+// "Ana veri" (yukarıdaki havuzGuncelle) sadece 13 izinli ligden "Kesin"
+// maçları takip ediyor. Bunun yanına, TÜM liglerden TÜM maçları (lig/oran
+// şartı yok) kapsayan geçici bir "günlük bülten" ve ondan türeyen kalıcı bir
+// "haftalık" (MS'te karşılıklı gol çıkan tüm maçların ham listesi) bölümü
+// eklendi. Veri HAVUZ_KV'de "gunluk" (obje, macId -> kayıt) ve "haftalik"
+// (dizi) anahtarlarında tutulur; veri-havuzu-drms sitesi bunları ayrı
+// sekmelerde gösterir.
+// ============================================================
+const GUNLUK_BULTEN_TTL_MS = 24 * 3600 * 1000;
+
+// snapshotAlVeYaz ile AYNI `maclar` listesi üzerinden (scheduled() bir kez
+// okuyup paslar) çalışır: kickoff'a <=2dk kalan (ve henüz dondurulmamış) HER
+// futbol maçını (lig/oran şartı yok — "ana veri"den farklı olarak) günlük
+// bültene ekler.
+async function gunlukBultenEkle(env, maclar) {
+  if (!env || !env.HAVUZ_KV || !maclar) return;
+  let gunluk;
+  try {
+    const ham = await env.HAVUZ_KV.get("gunluk");
+    gunluk = ham ? JSON.parse(ham) : {};
+  } catch (err) {
+    return;
+  }
+
+  const simdiMs = Date.now();
+  let degisti = false;
+  for (const m of maclar) {
+    const macMs = new Date(m.macZamani).getTime();
+    if (!Number.isFinite(macMs)) continue;
+    const kalanDk = (macMs - simdiMs) / 60000;
+    if (kalanDk < 0 || kalanDk > 2) continue;
+    if (gunluk[m.id]) continue; // zaten donduruldu
+
+    gunluk[m.id] = {
+      id: m.id,
+      lig: m.lig,
+      evSahibi: m.evSahibi,
+      deplasman: m.deplasman,
+      macZamani: m.macZamani,
+      iymsKgOran: typeof m.iymsKg === "number" ? Math.floor(m.iymsKg) : null,
+      altiGolOran: typeof m.altUst6 === "number" ? Math.floor(m.altUst6) : null,
+      durum: "bekliyor",
+      sonuc: null,
+      haftaligaYazildi: false,
+      eklenmeZamani: toIstanbulIso(new Date()),
+    };
+    degisti = true;
+  }
+  if (degisti) {
+    try {
+      await env.HAVUZ_KV.put("gunluk", JSON.stringify(gunluk));
+    } catch (err) { /* sessizce vazgeç, gelecek dakika tekrar denenir */ }
+  }
+}
+
+// Her dakika günlük bültendeki maçların durumunu ilerletir:
+//   bekliyor  -> kickoff saati geldi                -> oynanıyor
+//   oynanıyor -> canlı skor feed'inde ST==="MS" oldu -> tamamlandı
+// Tamamlanan bir maçta MS'te karşılıklı gol varsa (SADECE MS'e bakılır, İY
+// şartı YOK) haftalık listeye de eklenir. 24 saatten eski VE tamamlanmış
+// kayıtlar silinir — günlük bülten kalıcı veri tutmaz, kalıcı olan haftalık'tır.
+async function gunlukBultenGuncelle(env, canliSkorVerisi) {
+  if (!env || !env.HAVUZ_KV) return;
+  let gunluk;
+  try {
+    const ham = await env.HAVUZ_KV.get("gunluk");
+    gunluk = ham ? JSON.parse(ham) : {};
+  } catch (err) {
+    return;
+  }
+  if (!gunluk || Object.keys(gunluk).length === 0) return;
+
+  const skorMap = new Map();
+  if (canliSkorVerisi) {
+    for (const kayit of canliSkorVerisi.d || []) {
+      const c = kayit.C ?? kayit.NID;
+      if (c != null) skorMap.set(String(c), kayit);
+    }
+  }
+
+  const simdiMs = Date.now();
+  let degisti = false;
+  const yeniHaftalikKayitlar = [];
+  const silinecekIdler = [];
+
+  for (const [id, kayit] of Object.entries(gunluk)) {
+    const macMs = new Date(kayit.macZamani).getTime();
+
+    if (kayit.durum === "tamamlandi") {
+      if (Number.isFinite(macMs) && simdiMs - macMs > GUNLUK_BULTEN_TTL_MS) {
+        silinecekIdler.push(id);
+      }
+      continue; // sonuçlanmış, başka dokunma
+    }
+
+    if (kayit.durum === "bekliyor" && Number.isFinite(macMs) && simdiMs >= macMs) {
+      kayit.durum = "oynanıyor";
+      degisti = true;
+    }
+
+    const skorKayit = skorMap.get(id);
+    if (!skorKayit) {
+      // Kickoff'tan 6 saat geçmesine rağmen hiç skor verisi gelmediyse vazgeç
+      // (ertelenme/veri kaybı) — "veri_yok" ile işaretlenip 24s sonra silinir.
+      if (Number.isFinite(macMs) && simdiMs - macMs > 6 * 3600 * 1000) {
+        kayit.durum = "tamamlandi";
+        kayit.sonuc = { durum: "veri_yok" };
+        degisti = true;
+      }
+      continue;
+    }
+
+    const dakika = dakikaHesapla(skorKayit, simdiMs);
+    if (dakika !== null) continue; // hâlâ oynanıyor
+
+    const [msEv, msDep] = canliSkorHesapla(skorKayit);
+    if (!Number.isInteger(msEv) || !Number.isInteger(msDep) || msEv < 0 || msDep < 0) {
+      continue; // skor verisi bu tikte eksik/gecikmeli, gelecek dakika tekrar denenir
+    }
+    const [iyEv, iyDep] = ilkYariSkorHesapla(skorKayit);
+    const kgVar = msEv > 0 && msDep > 0; // sadece MS'e bakılır, İY şartı yok
+
+    kayit.durum = "tamamlandi";
+    kayit.sonuc = {
+      durum: "tamamlandi",
+      iy: Number.isInteger(iyEv) && Number.isInteger(iyDep) ? `${iyEv}:${iyDep}` : null,
+      ms: `${msEv}:${msDep}`,
+      kgVar,
+    };
+    degisti = true;
+
+    if (kgVar) {
+      kayit.haftaligaYazildi = true;
+      yeniHaftalikKayitlar.push({
+        hafta: (kayit.macZamani || "").slice(0, 10) || null,
+        lig: kayit.lig,
+        evSahibi: kayit.evSahibi,
+        deplasman: kayit.deplasman,
+        iy: kayit.sonuc.iy,
+        ms: kayit.sonuc.ms,
+        iymsKgOran: kayit.iymsKgOran,
+        altiGolOran: kayit.altiGolOran,
+        kgVar: true,
+        eklenmeZamani: toIstanbulIso(new Date()),
+      });
+    }
+  }
+
+  for (const id of silinecekIdler) delete gunluk[id];
+  if (silinecekIdler.length > 0) degisti = true;
+
+  if (yeniHaftalikKayitlar.length > 0) {
+    try {
+      const ham = await env.HAVUZ_KV.get("haftalik");
+      const haftalik = ham ? JSON.parse(ham) : [];
+      for (const k of yeniHaftalikKayitlar) haftalik.push(k);
+      await env.HAVUZ_KV.put("haftalik", JSON.stringify(haftalik));
+    } catch (err) {
+      // haftalığa yazılamadı — bu maçlar günlük bültende "tamamlandi" ve
+      // haftaligaYazildi:true kalır (mükerrer denemeyi önlemek için); nadir
+      // bir kayıp senaryosudur, mevcut kod tabanının genel risk toleransıyla
+      // tutarlıdır (bkz. havuzGuncelle'deki benzer "sessizce vazgeç" desenleri).
+    }
+  }
+
+  if (degisti) {
+    try {
+      await env.HAVUZ_KV.put("gunluk", JSON.stringify(gunluk));
+    } catch (err) { /* sessizce vazgeç, gelecek dakika tekrar denenir */ }
+  }
 }
 
 // ============================================================
@@ -813,18 +1020,28 @@ export default {
       return sinyalIsle(request, env);
     }
 
-    if (pathname !== "/api/bulten" && pathname !== "/api/canli") {
+    if (pathname === "/api/bulten-guncelle" && request.method === "POST") {
+      return bultenGuncelleIsle(request, env);
+    }
+
+
+    if (pathname === "/api/bulten") {
+      const guncel = await guncelMaclariAl(env);
+      if (!guncel) {
+        return jsonResponse({ hata: "veri henuz yok, kirmizi bot ilk push'u bekleniyor" }, 503);
+      }
+      const maclar = guncel.maclar.map((m) => ({ ...m, ...guvenHesapla(m.msKg ?? null, m.altUst6 ?? null, m.iymsKg ?? null) }));
+      return jsonResponse({ guncellemeZamani: guncel.guncellemeZamani, macSayisi: maclar.length, maclar });
+    }
+
+    if (pathname !== "/api/canli") {
       return new Response("Not found", { status: 404 });
     }
 
-    const canliMi = pathname === "/api/canli";
-    const cacheSaniye = canliMi ? 30 : 60; // canlı maçlarda dakika/skor daha sık değiştiği için daha kısa TTL
+    const cacheSaniye = 30; // canlı maçlarda dakika/skor sık değiştiği için kısa TTL
 
     const cache = caches.default;
-    const cacheKey = new Request(
-      new URL(request.url).origin + (canliMi ? "/kg-tahmin-canli" : "/kg-tahmin-odds"),
-      request
-    );
+    const cacheKey = new Request(new URL(request.url).origin + "/kg-tahmin-canli", request);
 
     const cached = await cache.match(cacheKey);
     if (cached) {
@@ -834,16 +1051,10 @@ export default {
 
     let cikti;
     try {
-      if (canliMi) {
-        const [canliBulten, canliSkorVerisi] = await Promise.all([canliBultenCek(), canliSkorCek()]);
-        const hamMaclar = canliMaclariIsle(canliBulten, canliSkorVerisi);
-        const maclar = await canliyaTahminEkle(hamMaclar, env);
-        cikti = { guncellemeZamani: toIstanbulIso(new Date()), macSayisi: maclar.length, maclar };
-      } else {
-        const veri = await bultenCek();
-        const maclar = maclariIsle(veri);
-        cikti = { guncellemeZamani: toIstanbulIso(new Date()), macSayisi: maclar.length, maclar };
-      }
+      const [canliBulten, canliSkorVerisi] = await Promise.all([canliBultenCek(), canliSkorCek()]);
+      const hamMaclar = canliMaclariIsle(canliBulten, canliSkorVerisi);
+      const maclar = await canliyaTahminEkle(hamMaclar, env);
+      cikti = { guncellemeZamani: toIstanbulIso(new Date()), macSayisi: maclar.length, maclar };
     } catch (err) {
       return jsonResponse({ hata: String(err && err.message ? err.message : err) }, 502);
     }
@@ -863,8 +1074,23 @@ export default {
   async scheduled(event, env, ctx) {
     ctx.waitUntil(
       (async () => {
-        await snapshotAlVeYaz(env);
-        await havuzGuncelle(env);
+        // Kırmızı bot'un pushladığı güncel maç listesi (7-8MB Nesine bültenini
+        // Worker artık hiç çekmiyor) bir kez okunup snapshot + günlük bültene paslanır.
+        const guncel = await guncelMaclariAl(env);
+        if (guncel) {
+          await snapshotAlVeYaz(env, guncel.maclar);
+          await gunlukBultenEkle(env, guncel.maclar);
+        }
+        // Canlı skor feed'i (~767KB, tam bültenden çok daha küçük) de bir kez
+        // çekilip hem "ana veri" hem "günlük bülten/haftalık" tarafından paylaşılır.
+        let canliSkorVerisi = null;
+        try {
+          canliSkorVerisi = await canliSkorCek();
+        } catch (err) { /* sessizce vazgeç, gelecek dakika tekrar denenir */ }
+        if (canliSkorVerisi) {
+          await havuzGuncelle(env, canliSkorVerisi);
+          await gunlukBultenGuncelle(env, canliSkorVerisi);
+        }
       })()
     );
   },
