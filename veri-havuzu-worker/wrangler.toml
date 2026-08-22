@@ -1,0 +1,11 @@
+name = "veri-havuzu-drms"
+main = "src/index.js"
+compatibility_date = "2026-08-17"
+account_id = "c8b3e790485df0cc8c4be0b2e8371216"
+
+[[kv_namespaces]]
+binding = "HAVUZ_KV"
+id = "d1ac45f394a5488282625dbfef016636"
+
+[observability]
+enabled = true
