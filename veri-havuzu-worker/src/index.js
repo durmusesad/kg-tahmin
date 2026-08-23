@@ -217,7 +217,6 @@ ${ORTAK_STIL}
   <div class="sekmeler">
     <button type="button" class="sekme-btn aktif" data-sekme="ana">Ana Veri</button>
     <button type="button" class="sekme-btn" data-sekme="gunluk">G\xFCnl\xFCk B\xFClten</button>
-    <button type="button" class="sekme-btn" data-sekme="haftalik">Haftal\u0131k</button>
   </div>
   <div class="wrap">
     <div class="panel" id="panelAna">
@@ -277,20 +276,9 @@ ${ORTAK_STIL}
       <div class="tablo-kutu">
         <table>
           <thead>
-            <tr><th>L\u0130G</th><th>EV SAHiBi</th><th>DEPLASMAN</th><th>MA\xC7 SAATi</th><th>\u0130Y</th><th>MS</th><th>SONU\xC7</th></tr>
+            <tr><th>L\u0130G</th><th>EV SAHiBi</th><th>DEPLASMAN</th><th>MA\xC7 SAATi</th><th>\u0130Y</th><th>MS</th><th>\u0130Y/MS KG EVET</th><th>6+ GOL</th><th>SONU\xC7</th></tr>
           </thead>
-          <tbody id="govdeGunlukTamamlanan"><tr><td colspan="7" class="bos">Y\xFCkleniyor\u2026</td></tr></tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="panel" id="panelHaftalik" hidden>
-      <div class="tablo-kutu">
-        <table>
-          <thead>
-            <tr><th>HAFTA</th><th>L\u0130G</th><th>EV SAHiBi</th><th>DEPLASMAN</th><th>\u0130Y</th><th>MS</th><th>\u0130Y/MS KG EVET</th><th>6+ GOL</th><th>Eklendi</th></tr>
-          </thead>
-          <tbody id="govdeHaftalik"><tr><td colspan="9" class="bos">Y\xFCkleniyor\u2026</td></tr></tbody>
+          <tbody id="govdeGunlukTamamlanan"><tr><td colspan="9" class="bos">Y\xFCkleniyor\u2026</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -388,8 +376,8 @@ ${ORTAK_STIL}
   $("filtreGol").addEventListener("change", listele);
   $("siralama").addEventListener("change", listele);
 
-  // --- Sekmeler: G\xFCnl\xFCk B\xFClten / Haftal\u0131k -----------------------------------
-  var SEKME_YUKLENDI = { gunluk: false, haftalik: false };
+  // --- Sekmeler: G\xFCnl\xFCk B\xFClten -----------------------------------
+  var SEKME_YUKLENDI = { gunluk: false };
 
   function eklenmeGosterGenel(zaman){
     if (!zaman) return "";
@@ -415,7 +403,7 @@ ${ORTAK_STIL}
     var sonuc = k.sonuc || {};
     var etiket, sinif;
     if (sonuc.durum === "veri_yok") { etiket = "Veri al\u0131namad\u0131"; sinif = "durum-veri-yok"; }
-    else if (sonuc.kgVar) { etiket = "KG \xE7\u0131kt\u0131 \u2192 haftal\u0131\u011fa yaz\u0131ld\u0131"; sinif = "durum-kg-var"; }
+    else if (sonuc.kgVar) { etiket = "KG var"; sinif = "durum-kg-var"; }
     else { etiket = "KG yok"; sinif = "durum-kg-yok"; }
     return "<tr>" +
       "<td class='lig'>" + escapeHtml(k.lig) + "</td>" +
@@ -424,6 +412,8 @@ ${ORTAK_STIL}
       "<td>" + eklenmeGosterGenel(k.macZamani) + "</td>" +
       "<td>" + escapeHtml(sonuc.iy || "") + "</td>" +
       "<td>" + escapeHtml(sonuc.ms || "") + "</td>" +
+      "<td>" + (k.iymsKgOran != null ? k.iymsKgOran : "") + "</td>" +
+      "<td>" + (k.altiGolOran != null ? k.altiGolOran : "") + "</td>" +
       "<td><span class='durum-etiket " + sinif + "'>" + etiket + "</span></td>" +
       "</tr>";
   }
@@ -440,46 +430,12 @@ ${ORTAK_STIL}
           : '<tr><td colspan="7" class="bos">Bekleyen/oynanan ma\xE7 yok.</td></tr>';
         $("govdeGunlukTamamlanan").innerHTML = tamam.length
           ? tamam.map(gunlukSatirTamamlananHtml).join("")
-          : '<tr><td colspan="7" class="bos">Tamamlanan ma\xE7 yok.</td></tr>';
+          : '<tr><td colspan="9" class="bos">Tamamlanan ma\xE7 yok.</td></tr>';
         SEKME_YUKLENDI.gunluk = true;
       })
       .catch(function(){
         $("govdeGunlukAktif").innerHTML = '<tr><td colspan="7" class="bos">Veri y\xFCklenemedi.</td></tr>';
         $("govdeGunlukTamamlanan").innerHTML = "";
-      });
-  }
-
-  function haftalikSatirHtml(k){
-    return "<tr>" +
-      "<td>" + escapeHtml(k.hafta) + "</td>" +
-      "<td class='lig'>" + escapeHtml(k.lig) + "</td>" +
-      "<td>" + escapeHtml(k.evSahibi) + "</td>" +
-      "<td>" + escapeHtml(k.deplasman) + "</td>" +
-      "<td>" + escapeHtml(k.iy) + "</td>" +
-      "<td class='ms-yesil'>" + escapeHtml(k.ms) + "</td>" +
-      "<td>" + (k.iymsKgOran != null ? k.iymsKgOran : "") + "</td>" +
-      "<td>" + (k.altiGolOran != null ? k.altiGolOran : "") + "</td>" +
-      "<td>" + eklenmeGosterGenel(k.eklenmeZamani) + "</td>" +
-      "</tr>";
-  }
-
-  function haftalikYukle(){
-    fetch("/api/haftalik", { cache: "no-store" })
-      .then(function(r){ if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
-      .then(function(data){
-        // Lig bazlı grupla (aynı lig alt alta), lig i\xE7inde en son eklenen \xFCstte.
-        var kayitlar = (data.kayitlar || []).slice().sort(function(a, b){
-          var ligFark = String(a.lig || "").localeCompare(String(b.lig || ""), "tr");
-          if (ligFark !== 0) return ligFark;
-          return String(b.eklenmeZamani || "").localeCompare(String(a.eklenmeZamani || ""));
-        });
-        $("govdeHaftalik").innerHTML = kayitlar.length
-          ? kayitlar.map(haftalikSatirHtml).join("")
-          : '<tr><td colspan="9" class="bos">Hen\xFCz KG \xE7\u0131kan ma\xE7 yok.</td></tr>';
-        SEKME_YUKLENDI.haftalik = true;
-      })
-      .catch(function(){
-        $("govdeHaftalik").innerHTML = '<tr><td colspan="9" class="bos">Veri y\xFCklenemedi.</td></tr>';
       });
   }
 
@@ -491,9 +447,7 @@ ${ORTAK_STIL}
       ev.target.classList.add("aktif");
       $("panelAna").hidden = hedef !== "ana";
       $("panelGunluk").hidden = hedef !== "gunluk";
-      $("panelHaftalik").hidden = hedef !== "haftalik";
       if (hedef === "gunluk" && !SEKME_YUKLENDI.gunluk) gunlukYukle();
-      if (hedef === "haftalik" && !SEKME_YUKLENDI.haftalik) haftalikYukle();
     });
   }
 
@@ -939,21 +893,6 @@ var index_default = {
         const obj = ham ? JSON.parse(ham) : {};
         kayitlar = Object.values(obj || {});
         kayitlar.sort((a, b) => String(a.macZamani || "").localeCompare(String(b.macZamani || "")));
-      } catch (err) {
-        kayitlar = [];
-      }
-      return jsonResponse({ kayitlar });
-    }
-    // Haftalık: HAVUZ_KV "haftalik" anahtarı bir dizi (KG çıkan tüm maçların
-    // ham kaydı) — ana veri ile aynı formatta, sadece evSahibi/deplasman ekli.
-    if (pathname === "/api/haftalik" && request.method === "GET") {
-      if (!await oturumGecerliMi(request, env)) {
-        return jsonResponse({ hata: "yetkisiz" }, 401);
-      }
-      let kayitlar = [];
-      try {
-        const ham = await env.HAVUZ_KV.get("haftalik");
-        kayitlar = ham ? JSON.parse(ham) : [];
       } catch (err) {
         kayitlar = [];
       }

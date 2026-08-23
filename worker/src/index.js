@@ -622,21 +622,22 @@ async function havuzGuncelle(env, canliSkorVerisi) {
 }
 
 // ============================================================
-// GÜNLÜK BÜLTEN + HAFTALIK (2026-08-22)
+// GÜNLÜK BÜLTEN (2026-08-22, "haftalık" bölümü 2026-08-23'te iptal edilip
+// buraya birleştirildi)
 // "Ana veri" (yukarıdaki havuzGuncelle) sadece 13 izinli ligden "Kesin"
-// maçları takip ediyor. Bunun yanına, TÜM liglerden TÜM maçları (lig/oran
-// şartı yok) kapsayan geçici bir "günlük bülten" ve ondan türeyen kalıcı bir
-// "haftalık" (MS'te karşılıklı gol çıkan tüm maçların ham listesi) bölümü
-// eklendi. Veri HAVUZ_KV'de "gunluk" (obje, macId -> kayıt) ve "haftalik"
-// (dizi) anahtarlarında tutulur; veri-havuzu-drms sitesi bunları ayrı
-// sekmelerde gösterir.
+// maçları takip ediyor. Bunun yanına, TÜM liglerden TÜM maçları (lig şartı
+// yok, sadece iki oranın da mevcut olması şart) kapsayan KALICI bir "günlük
+// bülten" eklendi — adının aksine artık silinmiyor: KG çıksın çıkmasın her
+// maçın sonucu + oranları kalıcı olarak tutuluyor, veri havuzu bu şekilde
+// büyütülüyor. Veri HAVUZ_KV'de "gunluk" (obje, macId -> kayıt) anahtarında;
+// veri-havuzu-drms sitesi "Oynanıyor/Bekliyor" ve "Tamamlanan" olarak iki
+// grupta gösterir.
 // ============================================================
-const GUNLUK_BULTEN_TTL_MS = 24 * 3600 * 1000;
 
 // snapshotAlVeYaz ile AYNI `maclar` listesi üzerinden (scheduled() bir kez
 // okuyup paslar) çalışır: kickoff'a <=2dk kalan (ve henüz dondurulmamış) HER
-// futbol maçını (lig/oran şartı yok — "ana veri"den farklı olarak) günlük
-// bültene ekler.
+// futbol maçını (lig şartı yok — "ana veri"den farklı olarak) günlük bültene
+// ekler.
 async function gunlukBultenEkle(env, maclar) {
   if (!env || !env.HAVUZ_KV || !maclar) return;
   let gunluk;
@@ -655,8 +656,8 @@ async function gunlukBultenEkle(env, maclar) {
     const kalanDk = (macMs - simdiMs) / 60000;
     if (kalanDk < 0 || kalanDk > 2) continue;
     if (gunluk[m.id]) continue; // zaten donduruldu
-    // İkisi de yoksa bu maç zaten hiçbir zaman haftalığa yazılamaz (cift
-    // anahtarı için ikisi de şart) — günlük bültene hiç eklenmesin.
+    // İkisi de yoksa bu maç için cift anahtarı hiç kurulamaz — günlük
+    // bültene (dolayısıyla kalıcı veri havuzuna) hiç eklenmesin.
     if (typeof m.iymsKg !== "number" || typeof m.altUst6 !== "number") continue;
 
     gunluk[m.id] = {
@@ -669,7 +670,6 @@ async function gunlukBultenEkle(env, maclar) {
       altiGolOran: typeof m.altUst6 === "number" ? Math.floor(m.altUst6) : null,
       durum: "bekliyor",
       sonuc: null,
-      haftaligaYazildi: false,
       eklenmeZamani: toIstanbulIso(new Date()),
     };
     degisti = true;
@@ -684,9 +684,9 @@ async function gunlukBultenEkle(env, maclar) {
 // Her dakika günlük bültendeki maçların durumunu ilerletir:
 //   bekliyor  -> kickoff saati geldi                -> oynanıyor
 //   oynanıyor -> canlı skor feed'inde ST==="MS" oldu -> tamamlandı
-// Tamamlanan bir maçta MS'te karşılıklı gol varsa (SADECE MS'e bakılır, İY
-// şartı YOK) haftalık listeye de eklenir. 24 saatten eski VE tamamlanmış
-// kayıtlar silinir — günlük bülten kalıcı veri tutmaz, kalıcı olan haftalık'tır.
+// Tamamlanan kayıtlar KALICI — silinmez, ne olursa olsun (KG var/yok/veri
+// yok) veri havuzunda kalır; "haftalık"a ayrıca yazma yok (o bölüm iptal
+// edildi, günlük bültenin "tamamlandı" grubu artık aynı işlevi görüyor).
 async function gunlukBultenGuncelle(env, canliSkorVerisi) {
   if (!env || !env.HAVUZ_KV) return;
   let gunluk;
@@ -708,18 +708,11 @@ async function gunlukBultenGuncelle(env, canliSkorVerisi) {
 
   const simdiMs = Date.now();
   let degisti = false;
-  const yeniHaftalikKayitlar = [];
-  const silinecekIdler = [];
 
   for (const [id, kayit] of Object.entries(gunluk)) {
-    const macMs = new Date(kayit.macZamani).getTime();
+    if (kayit.durum === "tamamlandi") continue; // sonuçlanmış, kalıcı — dokunma
 
-    if (kayit.durum === "tamamlandi") {
-      if (Number.isFinite(macMs) && simdiMs - macMs > GUNLUK_BULTEN_TTL_MS) {
-        silinecekIdler.push(id);
-      }
-      continue; // sonuçlanmış, başka dokunma
-    }
+    const macMs = new Date(kayit.macZamani).getTime();
 
     if (kayit.durum === "bekliyor" && Number.isFinite(macMs) && simdiMs >= macMs) {
       kayit.durum = "oynanıyor";
@@ -729,7 +722,7 @@ async function gunlukBultenGuncelle(env, canliSkorVerisi) {
     const skorKayit = skorMap.get(id);
     if (!skorKayit) {
       // Kickoff'tan 6 saat geçmesine rağmen hiç skor verisi gelmediyse vazgeç
-      // (ertelenme/veri kaybı) — "veri_yok" ile işaretlenip 24s sonra silinir.
+      // (ertelenme/veri kaybı) — "veri_yok" ile işaretlenip kalıcı olarak kalır.
       if (Number.isFinite(macMs) && simdiMs - macMs > 6 * 3600 * 1000) {
         kayit.durum = "tamamlandi";
         kayit.sonuc = { durum: "veri_yok" };
@@ -756,39 +749,6 @@ async function gunlukBultenGuncelle(env, canliSkorVerisi) {
       kgVar,
     };
     degisti = true;
-
-    if (kgVar) {
-      kayit.haftaligaYazildi = true;
-      yeniHaftalikKayitlar.push({
-        hafta: (kayit.macZamani || "").slice(0, 10) || null,
-        lig: kayit.lig,
-        evSahibi: kayit.evSahibi,
-        deplasman: kayit.deplasman,
-        iy: kayit.sonuc.iy,
-        ms: kayit.sonuc.ms,
-        iymsKgOran: kayit.iymsKgOran,
-        altiGolOran: kayit.altiGolOran,
-        kgVar: true,
-        eklenmeZamani: toIstanbulIso(new Date()),
-      });
-    }
-  }
-
-  for (const id of silinecekIdler) delete gunluk[id];
-  if (silinecekIdler.length > 0) degisti = true;
-
-  if (yeniHaftalikKayitlar.length > 0) {
-    try {
-      const ham = await env.HAVUZ_KV.get("haftalik");
-      const haftalik = ham ? JSON.parse(ham) : [];
-      for (const k of yeniHaftalikKayitlar) haftalik.push(k);
-      await env.HAVUZ_KV.put("haftalik", JSON.stringify(haftalik));
-    } catch (err) {
-      // haftalığa yazılamadı — bu maçlar günlük bültende "tamamlandi" ve
-      // haftaligaYazildi:true kalır (mükerrer denemeyi önlemek için); nadir
-      // bir kayıp senaryosudur, mevcut kod tabanının genel risk toleransıyla
-      // tutarlıdır (bkz. havuzGuncelle'deki benzer "sessizce vazgeç" desenleri).
-    }
   }
 
   if (degisti) {
