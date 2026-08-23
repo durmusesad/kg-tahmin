@@ -233,9 +233,9 @@ ${ORTAK_STIL}
         <div>
           <label for="siralama">S\u0131rala</label>
           <select id="siralama">
-            <option value="varsayilan">Varsay\u0131lan S\u0131ra</option>
-            <option value="eklenme_yeni">Son Eklenenler \xD6nce</option>
+            <option value="eklenme_yeni" selected>Son Eklenenler \xD6nce</option>
             <option value="eklenme_eski">\u0130lk Eklenenler \xD6nce</option>
+            <option value="varsayilan">Varsay\u0131lan S\u0131ra</option>
           </select>
         </div>
       </div>
