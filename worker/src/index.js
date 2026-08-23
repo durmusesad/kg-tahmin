@@ -424,7 +424,7 @@ async function snapshotAlVeYaz(env, maclar) {
   const simdiMs = Date.now();
 
   const yazmalar = [];
-  const yeniKesinler = [];
+  const yeniAdaylar = [];
   for (const m of maclar) {
     const tahmin = guvenHesapla(m.msKg, m.altUst6, m.iymsKg);
     if (tahmin.msKg == null && tahmin.altUst6 == null && tahmin.iymsKg == null) continue; // hiç market yoksa saklamaya değmez
@@ -434,20 +434,25 @@ async function snapshotAlVeYaz(env, maclar) {
     if (kalanDk < 0 || kalanDk > 2) continue; // sadece kickoff'a en fazla 2 dk kalan maçlar
     const kayit = { ...m, ...tahmin, tahminZamani: toIstanbulIso(new Date()) };
     yazmalar.push(env.KG_SNAPSHOTS.put(m.id, JSON.stringify(kayit), { expirationTtl: 6 * 3600 }));
-    if (tahmin.guven === "kesin" && ligIzinliMi(m.lig)) {
-      yeniKesinler.push({ id: m.id, lig: m.lig, evSahibi: m.evSahibi, deplasman: m.deplasman, macZamani: m.macZamani });
+    // 2026-08-24: "ana veri"ye yazma şartı sadeleştirildi — artık SADECE
+    // 13 izinli ligden biri olması yeterli, "Kesin" (guven==="kesin") şartı
+    // KALDIRILDI. Amaç: sadece nadir görülen Kesin eşleşmeleri değil, bu
+    // liglerdeki HER maçın sonucunu (tutsun/tutmasın) biriktirip veri
+    // havuzunu daha sağlıklı büyütmek — günlük bültende zaten uygulanan
+    // "hepsini kaydet" felsefesiyle tutarlı.
+    if (ligIzinliMi(m.lig)) {
+      yeniAdaylar.push({ id: m.id, lig: m.lig, evSahibi: m.evSahibi, deplasman: m.deplasman, macZamani: m.macZamani });
     }
   }
   await Promise.all(yazmalar);
-  await kesinBekleyenEkle(env, yeniKesinler);
+  await havuzBekleyenEkle(env, yeniAdaylar);
 }
 
-// Kişisel veri havuzu: maç öncesi "Kesin" olarak işaretlenmiş (ve izin verilen
-// ligler listesindeki) maçları havuz:bekleyen listesine ekler — her maça,
-// tahmini bitiş saatini (kontrolZamani) de damgalar. havuzGuncelle bir maçı
-// bu saat gelmeden hiç sorgulamaz. Id bazlı dedupe ile aynı maç iki kez
-// eklenmez.
-async function kesinBekleyenEkle(env, yeniler) {
+// Kişisel veri havuzu: izin verilen 13 ligden birinde olan maçları
+// havuz:bekleyen listesine ekler — her maça, tahmini bitiş saatini
+// (kontrolZamani) de damgalar. havuzGuncelle bir maçı bu saat gelmeden hiç
+// sorgulamaz. Id bazlı dedupe ile aynı maç iki kez eklenmez.
+async function havuzBekleyenEkle(env, yeniler) {
   if (!env || !env.KG_SNAPSHOTS || !yeniler || yeniler.length === 0) return;
   try {
     const ham = await env.KG_SNAPSHOTS.get("havuz:bekleyen");
@@ -469,9 +474,9 @@ async function kesinBekleyenEkle(env, yeniler) {
 }
 
 // Her dakika snapshotAlVeYaz'dan sonra çalışır. havuz:bekleyen listesindeki
-// "Kesin" maçları kickoff'tan itibaren dakika dakika İZLEMEZ — donmuş maç
-// öncesi oran zaten snapshot'a yazılmış olduğundan, bir maçın tahmini bitiş
-// saati (kontrolZamani, bkz. kesinBekleyenEkle) gelmeden ona hiç dokunmaz ve
+// (izin verilen 13 ligden) maçları kickoff'tan itibaren dakika dakika
+// İZLEMEZ — donmuş maç öncesi oran zaten snapshot'a yazılmış olduğundan, bir
+// maçın tahmini bitiş saati (kontrolZamani, bkz. havuzBekleyenEkle) gelmeden ona hiç dokunmaz ve
 // canlı skor API'sini çağırmaz. O saat geldiğinde TEK bir kontrol yapılır:
 // maç gerçekten bitmişse gerçek sonucu (İY/MS skoru + maç öncesi son oran +
 // KG var mı) kg-tahmin'in kendi veri-havuzu sitesiyle (ayrı proje, GitHub'a
@@ -624,8 +629,9 @@ async function havuzGuncelle(env, canliSkorVerisi) {
 // ============================================================
 // GÜNLÜK BÜLTEN (2026-08-22, "haftalık" bölümü 2026-08-23'te iptal edilip
 // buraya birleştirildi)
-// "Ana veri" (yukarıdaki havuzGuncelle) sadece 13 izinli ligden "Kesin"
-// maçları takip ediyor. Bunun yanına, TÜM liglerden TÜM maçları (lig şartı
+// "Ana veri" (yukarıdaki havuzGuncelle) sadece 13 izinli ligden maçları
+// takip ediyor (2026-08-24'ten beri "Kesin" şartı yok, tüm sonuçlar
+// tutuluyor). Bunun yanına, TÜM liglerden TÜM maçları (lig şartı
 // yok, sadece iki oranın da mevcut olması şart) kapsayan KALICI bir "günlük
 // bülten" eklendi — adının aksine artık silinmiyor: KG çıksın çıkmasın her
 // maçın sonucu + oranları kalıcı olarak tutuluyor, veri havuzu bu şekilde

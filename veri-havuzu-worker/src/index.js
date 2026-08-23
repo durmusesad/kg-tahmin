@@ -154,6 +154,9 @@ ${ORTAK_STIL}
   .filtreler input[type=text]{width:100%; padding:8px 9px; border:1.5px solid var(--border); border-radius:8px; font-size:13.5px; background:#fff; color:var(--ink);}
   .filtreler input[type=text]:focus{outline:none; border-color:var(--accent);}
   .mini-sayac{font-size:11.5px; color:var(--ink-soft); margin:-4px 0 10px;}
+  .filtreler .filtre-buton-sutun{flex:0 0 auto; min-width:auto;}
+  .temizle-btn{padding:8.5px 14px; border:1.5px solid var(--border); border-radius:8px; background:#fff; color:var(--ink-soft); font-size:12.5px; font-weight:700; cursor:pointer; white-space:nowrap;}
+  .temizle-btn:hover{background:#0000000f; color:var(--ink);}
   .tablo-kutu{overflow-x:auto; border:1px solid var(--border); border-radius:10px; background:var(--card);}
   table{border-collapse:collapse; width:100%; min-width:620px; font-size:13px;}
   thead th{background:var(--gri); color:#1f1b16; font-weight:800; padding:9px 8px; text-align:center; white-space:nowrap; position:sticky; top:0;}
@@ -240,6 +243,10 @@ ${ORTAK_STIL}
             <option value="varsayilan">Varsay\u0131lan S\u0131ra</option>
           </select>
         </div>
+        <div class="filtre-buton-sutun">
+          <label>&nbsp;</label>
+          <button type="button" class="temizle-btn" id="anaTemizleBtn">Filtreleri Temizle</button>
+        </div>
       </div>
       <div class="tablo-kutu">
         <table>
@@ -300,6 +307,10 @@ ${ORTAK_STIL}
             <option value="eklenme_eski">\u0130lk Eklenenler \u00d6nce</option>
             <option value="lig_asc">Lig (A-Z)</option>
           </select>
+        </div>
+        <div class="filtre-buton-sutun">
+          <label>&nbsp;</label>
+          <button type="button" class="temizle-btn" id="tamamlananTemizleBtn">Filtreleri Temizle</button>
         </div>
       </div>
       <div class="mini-sayac" id="tamamlananSayac">\u2013</div>
@@ -406,6 +417,12 @@ ${ORTAK_STIL}
   $("filtreKg").addEventListener("change", listele);
   $("filtreGol").addEventListener("change", listele);
   $("siralama").addEventListener("change", listele);
+  $("anaTemizleBtn").addEventListener("click", function(){
+    $("filtreKg").value = "";
+    $("filtreGol").value = "";
+    $("siralama").value = "eklenme_yeni";
+    listele();
+  });
 
   // --- Sekmeler: G\xFCnl\xFCk B\xFClten -----------------------------------
   var SEKME_YUKLENDI = { gunluk: false };
@@ -519,6 +536,13 @@ ${ORTAK_STIL}
   $("tamamlananLig").addEventListener("change", tamamlananListele);
   $("tamamlananKg").addEventListener("change", tamamlananListele);
   $("tamamlananSirala").addEventListener("change", tamamlananListele);
+  $("tamamlananTemizleBtn").addEventListener("click", function(){
+    $("tamamlananArama").value = "";
+    $("tamamlananLig").value = "";
+    $("tamamlananKg").value = "";
+    $("tamamlananSirala").value = "eklenme_yeni";
+    tamamlananListele();
+  });
 
   var SEKME_BUTONLARI = document.querySelectorAll(".sekme-btn");
   for (var si = 0; si < SEKME_BUTONLARI.length; si++) {
