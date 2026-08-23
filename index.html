@@ -998,7 +998,14 @@
     let matches = tabMatches(currentTab);
     if (currentLeague) matches = matches.filter(m => m.lig === currentLeague);
     if (searchQuery) matches = matches.filter(m => matchesSearch(m, searchQuery));
-    matches = matches.slice().sort(SORTS[currentSort].cmp);
+    // Kırmızı bot sinyali gelen maçlar, seçili sıralama ne olursa olsun
+    // (Kesin/Olası ayrımından bağımsız) her zaman en üstte gösterilir.
+    matches = matches.slice().sort((a, b) => {
+      const aSinyal = a.kirmiziSinyal ? 1 : 0;
+      const bSinyal = b.kirmiziSinyal ? 1 : 0;
+      if (aSinyal !== bSinyal) return bSinyal - aSinyal;
+      return SORTS[currentSort].cmp(a, b);
+    });
 
     $("list").innerHTML = matches.map(matchCard).join("");
     $("emptyNote").style.display = matches.length ? "none" : "block";
