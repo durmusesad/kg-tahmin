@@ -151,6 +151,9 @@ ${ORTAK_STIL}
   .filtreler div{flex:1; min-width:140px;}
   .filtreler label{display:block; font-size:11px; color:var(--ink-soft); margin-bottom:3px;}
   select{width:100%; padding:8px 9px; border:1.5px solid var(--border); border-radius:8px; font-size:13.5px; background:#fff; color:var(--ink);}
+  .filtreler input[type=text]{width:100%; padding:8px 9px; border:1.5px solid var(--border); border-radius:8px; font-size:13.5px; background:#fff; color:var(--ink);}
+  .filtreler input[type=text]:focus{outline:none; border-color:var(--accent);}
+  .mini-sayac{font-size:11.5px; color:var(--ink-soft); margin:-4px 0 10px;}
   .tablo-kutu{overflow-x:auto; border:1px solid var(--border); border-radius:10px; background:var(--card);}
   table{border-collapse:collapse; width:100%; min-width:620px; font-size:13px;}
   thead th{background:var(--gri); color:#1f1b16; font-weight:800; padding:9px 8px; text-align:center; white-space:nowrap; position:sticky; top:0;}
@@ -216,7 +219,7 @@ ${ORTAK_STIL}
   </div>
   <div class="sekmeler">
     <button type="button" class="sekme-btn aktif" data-sekme="ana">Ana Veri</button>
-    <button type="button" class="sekme-btn" data-sekme="gunluk">G\xFCnl\xFCk B\xFClten</button>
+    <button type="button" class="sekme-btn" data-sekme="gunluk">Analiz</button>
   </div>
   <div class="wrap">
     <div class="panel" id="panelAna">
@@ -273,6 +276,33 @@ ${ORTAK_STIL}
         </table>
       </div>
       <div class="alt-baslik">Tamamlanan</div>
+      <div class="filtreler">
+        <div>
+          <label for="tamamlananArama">Ara</label>
+          <input type="text" id="tamamlananArama" placeholder="Tak\u0131m veya lig ara\u2026">
+        </div>
+        <div>
+          <label for="tamamlananLig">Lig</label>
+          <select id="tamamlananLig"><option value="">T\u00fcm\u00fc</option></select>
+        </div>
+        <div>
+          <label for="tamamlananKg">KG</label>
+          <select id="tamamlananKg">
+            <option value="">T\u00fcm\u00fc</option>
+            <option value="var">KG Var</option>
+            <option value="yok">KG Yok</option>
+          </select>
+        </div>
+        <div>
+          <label for="tamamlananSirala">S\u0131rala</label>
+          <select id="tamamlananSirala">
+            <option value="eklenme_yeni">Son Eklenenler \u00d6nce</option>
+            <option value="eklenme_eski">\u0130lk Eklenenler \u00d6nce</option>
+            <option value="lig_asc">Lig (A-Z)</option>
+          </select>
+        </div>
+      </div>
+      <div class="mini-sayac" id="tamamlananSayac">\u2013</div>
       <div class="tablo-kutu">
         <table>
           <thead>
@@ -323,6 +353,7 @@ ${ORTAK_STIL}
   }
 
   var TUM_KAYITLAR = [];
+  var TUM_TAMAMLANAN = []; // Analiz sekmesi, "Tamamlanan" tablosunun ham verisi
 
   function eklenmeGoster(k){
     if (!k.eklenmeZamani) return "";
@@ -424,20 +455,70 @@ ${ORTAK_STIL}
       .then(function(data){
         var kayitlar = data.kayitlar || [];
         var aktif = kayitlar.filter(function(k){ return k.durum !== "tamamlandi"; });
-        var tamam = kayitlar.filter(function(k){ return k.durum === "tamamlandi"; });
+        TUM_TAMAMLANAN = kayitlar.filter(function(k){ return k.durum === "tamamlandi"; });
         $("govdeGunlukAktif").innerHTML = aktif.length
           ? aktif.map(gunlukSatirAktifHtml).join("")
-          : '<tr><td colspan="7" class="bos">Bekleyen/oynanan ma\xE7 yok.</td></tr>';
-        $("govdeGunlukTamamlanan").innerHTML = tamam.length
-          ? tamam.map(gunlukSatirTamamlananHtml).join("")
-          : '<tr><td colspan="9" class="bos">Tamamlanan ma\xE7 yok.</td></tr>';
+          : '<tr><td colspan="7" class="bos">Bekleyen/oynanan maç yok.</td></tr>';
+        tamamlananLigSecenekleriDoldur();
+        tamamlananListele();
         SEKME_YUKLENDI.gunluk = true;
       })
       .catch(function(){
-        $("govdeGunlukAktif").innerHTML = '<tr><td colspan="7" class="bos">Veri y\xFCklenemedi.</td></tr>';
-        $("govdeGunlukTamamlanan").innerHTML = "";
+        $("govdeGunlukAktif").innerHTML = '<tr><td colspan="7" class="bos">Veri yüklenemedi.</td></tr>';
+        $("govdeGunlukTamamlanan").innerHTML = '<tr><td colspan="9" class="bos">Veri yüklenemedi.</td></tr>';
       });
   }
+
+  // --- Analiz / Tamamlanan tablosu: arama + lig/KG filtresi + sıralama -----
+  function tamamlananLigSecenekleriDoldur(){
+    var ligler = [];
+    var gorulen = {};
+    for (var i = 0; i < TUM_TAMAMLANAN.length; i++){
+      var l = TUM_TAMAMLANAN[i].lig;
+      if (l && !gorulen[l]) { gorulen[l] = true; ligler.push(l); }
+    }
+    ligler.sort(function(a, b){ return a.localeCompare(b, "tr"); });
+    var sel = $("tamamlananLig");
+    var mevcut = sel.value;
+    sel.innerHTML = '<option value="">Tümü</option>' + ligler.map(function(l){
+      return '<option value="' + escapeHtml(l) + '">' + escapeHtml(l) + '</option>';
+    }).join("");
+    if (ligler.indexOf(mevcut) !== -1) sel.value = mevcut;
+  }
+
+  function tamamlananAramaEslesir(k, q){
+    var hay = (String(k.evSahibi || "") + " " + String(k.deplasman || "") + " " + String(k.lig || "")).toLocaleLowerCase("tr-TR");
+    return hay.indexOf(q) !== -1;
+  }
+
+  function tamamlananListele(){
+    var q = $("tamamlananArama").value.trim().toLocaleLowerCase("tr-TR");
+    var lig = $("tamamlananLig").value;
+    var kg = $("tamamlananKg").value;
+    var sira = $("tamamlananSirala").value;
+
+    var liste = TUM_TAMAMLANAN.slice();
+    if (q) liste = liste.filter(function(k){ return tamamlananAramaEslesir(k, q); });
+    if (lig) liste = liste.filter(function(k){ return k.lig === lig; });
+    if (kg === "var") liste = liste.filter(function(k){ return k.sonuc && k.sonuc.kgVar === true; });
+    if (kg === "yok") liste = liste.filter(function(k){ return k.sonuc && k.sonuc.kgVar === false; });
+
+    liste.sort(function(a, b){
+      if (sira === "lig_asc") return String(a.lig || "").localeCompare(String(b.lig || ""), "tr");
+      var fark = String(a.eklenmeZamani || "").localeCompare(String(b.eklenmeZamani || ""));
+      return sira === "eklenme_eski" ? fark : -fark;
+    });
+
+    $("govdeGunlukTamamlanan").innerHTML = liste.length
+      ? liste.map(gunlukSatirTamamlananHtml).join("")
+      : '<tr><td colspan="9" class="bos">Kriterlere uyan kayıt yok.</td></tr>';
+    $("tamamlananSayac").textContent = liste.length + " / " + TUM_TAMAMLANAN.length + " kayıt";
+  }
+
+  $("tamamlananArama").addEventListener("input", tamamlananListele);
+  $("tamamlananLig").addEventListener("change", tamamlananListele);
+  $("tamamlananKg").addEventListener("change", tamamlananListele);
+  $("tamamlananSirala").addEventListener("change", tamamlananListele);
 
   var SEKME_BUTONLARI = document.querySelectorAll(".sekme-btn");
   for (var si = 0; si < SEKME_BUTONLARI.length; si++) {
