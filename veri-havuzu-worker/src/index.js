@@ -467,7 +467,12 @@ ${ORTAK_STIL}
     fetch("/api/haftalik", { cache: "no-store" })
       .then(function(r){ if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
       .then(function(data){
-        var kayitlar = (data.kayitlar || []).slice().reverse(); // son eklenen \xFCstte
+        // Lig bazlı grupla (aynı lig alt alta), lig i\xE7inde en son eklenen \xFCstte.
+        var kayitlar = (data.kayitlar || []).slice().sort(function(a, b){
+          var ligFark = String(a.lig || "").localeCompare(String(b.lig || ""), "tr");
+          if (ligFark !== 0) return ligFark;
+          return String(b.eklenmeZamani || "").localeCompare(String(a.eklenmeZamani || ""));
+        });
         $("govdeHaftalik").innerHTML = kayitlar.length
           ? kayitlar.map(haftalikSatirHtml).join("")
           : '<tr><td colspan="9" class="bos">Hen\xFCz KG \xE7\u0131kan ma\xE7 yok.</td></tr>';
