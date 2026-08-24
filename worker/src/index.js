@@ -173,12 +173,21 @@ async function guncelMaclariAl(env) {
 // KG/6+Gol/İY-MS-KG oranlarından (zaten çıkarılmış) güven sınıflandırmasını
 // hesaplar — hem kırmızı bot'tan gelen ham oranlar hem de (canlı sekmesinde
 // hâlâ kullanılan) MA dizisinden çıkarılan oranlar için ortak kullanılır.
-function guvenHesapla(msKg, altUst6, iymsKg) {
+//
+// 2026-08-24: "Kesin" artık SADECE kombinasyon geçmişine değil, lig'e de
+// bakıyor. Sebep: 13 izinli lig dışındaki maçlarda kombinasyon arşivi %100
+// tutsa bile gerçekte tutma oranı düşük (kullanıcı gözlemi) — havuz zaten
+// sadece bu 13 ligden besleniyor (bkz. ligIzinliMi), yani arşivin kendisi de
+// bu liglere göre kurulu; onun dışındaki bir maça aynı arşivi uygulamak
+// yanıltıcı. Lig 13'ün dışındaysa kombinasyon ne kadar iyi olursa olsun en
+// fazla "olasi" verilir.
+function guvenHesapla(msKg, altUst6, iymsKg, lig) {
   let onerilen = false;
   let tutma = null;
   let toplam = null;
   let tutmaOrani = null;
   let guven = null;
+  let ligUygun = null;
   if (iymsKg !== null && altUst6 !== null) {
     const ciftAnahtari = `${Math.floor(iymsKg)},${Math.floor(altUst6)}`;
     const istatistik = gecmis[ciftAnahtari];
@@ -187,10 +196,11 @@ function guvenHesapla(msKg, altUst6, iymsKg) {
       toplam = istatistik.toplam;
       tutmaOrani = tutma / toplam;
       onerilen = true;
-      guven = toplam >= 3 && tutmaOrani === 1.0 ? "kesin" : "olasi";
+      ligUygun = ligIzinliMi(lig);
+      guven = ligUygun && toplam >= 3 && tutmaOrani === 1.0 ? "kesin" : "olasi";
     }
   }
-  return { msKg, altUst6, iymsKg, onerilen, tutma, toplam, tutmaOrani, guven };
+  return { msKg, altUst6, iymsKg, onerilen, tutma, toplam, tutmaOrani, guven, ligUygun };
 }
 
 // NOT (2026-08-22): Nesine'nin canlı uç noktaları ara sıra ciddi şekilde
@@ -356,7 +366,7 @@ function canliMaclariIsle(canliBultenVerisi, canliSkorVerisi) {
 async function canliyaTahminEkle(maclar, env) {
   const bosTahmin = {
     msKg: null, altUst6: null, iymsKg: null,
-    onerilen: false, tutma: null, toplam: null, tutmaOrani: null, guven: null,
+    onerilen: false, tutma: null, toplam: null, tutmaOrani: null, guven: null, ligUygun: null,
     tahminZamani: null,
   };
   return Promise.all(maclar.map(async (m) => {
@@ -370,7 +380,7 @@ async function canliyaTahminEkle(maclar, env) {
         tahminAlanlari = {
           msKg: anlik.msKg, altUst6: anlik.altUst6, iymsKg: anlik.iymsKg,
           onerilen: anlik.onerilen, tutma: anlik.tutma, toplam: anlik.toplam,
-          tutmaOrani: anlik.tutmaOrani, guven: anlik.guven,
+          tutmaOrani: anlik.tutmaOrani, guven: anlik.guven, ligUygun: anlik.ligUygun ?? null,
           tahminZamani: anlik.tahminZamani || null,
         };
       }
@@ -441,7 +451,7 @@ async function snapshotAlVeYaz(env, maclar) {
   const yazmalar = [];
   const yeniAdaylar = [];
   for (const m of maclar) {
-    const tahmin = guvenHesapla(m.msKg, m.altUst6, m.iymsKg);
+    const tahmin = guvenHesapla(m.msKg, m.altUst6, m.iymsKg, m.lig);
     if (tahmin.msKg == null && tahmin.altUst6 == null && tahmin.iymsKg == null) continue; // hiç market yoksa saklamaya değmez
     const macMs = new Date(m.macZamani).getTime();
     if (!Number.isFinite(macMs)) continue;
@@ -1030,7 +1040,7 @@ export default {
       if (!guncel) {
         return jsonResponse({ hata: "veri henuz yok, kirmizi bot ilk push'u bekleniyor" }, 503);
       }
-      const maclar = guncel.maclar.map((m) => ({ ...m, ...guvenHesapla(m.msKg ?? null, m.altUst6 ?? null, m.iymsKg ?? null) }));
+      const maclar = guncel.maclar.map((m) => ({ ...m, ...guvenHesapla(m.msKg ?? null, m.altUst6 ?? null, m.iymsKg ?? null, m.lig ?? null) }));
       return jsonResponse({ guncellemeZamani: guncel.guncellemeZamani, macSayisi: maclar.length, maclar });
     }
 

@@ -700,8 +700,8 @@
   sortSelectEl.value = currentSort;
 
   const TAB_NOTES = {
-    kesin: "Geçmişte en az 3 kez denenmiş ve hepsinde (%100) karşılıklı gol çıkmış oran çiftleri.",
-    olasi: "Geçmişte görülmüş ama 3 örnekten az, ya da %100'ün altında tutmuş oran çiftleri. Örnek sayısı düşük olanlarda oran güvenilir olmayabilir.",
+    kesin: "Verilerini takip ettiğimiz 13 büyük ligden biri ve geçmişte en az 3 kez denenip hepsinde (%100) karşılıklı gol çıkmış oran çiftleri.",
+    olasi: "Ya örnek sayısı 3'ten az, ya arşivde %100'ün altında tutmuş, ya da takip ettiğimiz 13 lig dışında bir maç — bu yüzden yine de tutabilir ama garantisi yok, kararı sana bırakıyoruz.",
     tum:   "Bültendeki tüm maçlar (geçmiş verisi olsun olmasın).",
     canli: "Şu anda oynanan maçlar; dakika ve skor Nesine'nin canlı veri akışından alınır, en son başlayan üstte. Karşılıklı Gol (MS KG) oranı canlı ve güncel, kupona eklenebilir. 6+ Gol ve İY/MS KG oranları ise Nesine'nin canlıda hiç sunmadığı marketler olduğundan maçın başlamasından hemen önceki son ön-maç değeridir — sadece Kesin/Olası etiketinin dayanağıdır, canlı güncellenmez.",
   };
@@ -866,10 +866,17 @@
     let inner = "";
     if (tier){
       const pct = Math.round(m.tutmaOrani * 100);
+      // Kombinasyon arşivi %100 tutmuş olsa bile lig takip ettiğimiz 13'ün
+      // dışındaysa etiket "olasi" kalır (bkz. guvenHesapla) — bu durumda
+      // "%100" yazan bir Arşiv çipi "Olası" rozetinin yanında çelişkili
+      // görünür, o yüzden burada nedeni düz yazıyla açıklıyoruz.
+      const disLigNedeniyle = tier === "olasi" && m.ligUygun === false && m.toplam >= 3 && m.tutmaOrani === 1;
       inner += '<div class="chip-row">' +
         statChip(tier, "Güven", tier === "kesin" ? "Kesin" : "Olası") +
         statChip(tier, "Kombinasyon", Math.floor(m.iymsKg) + " / " + Math.floor(m.altUst6)) +
-        statChip(tier + " pct", "Arşiv", m.tutma + "/" + m.toplam + " · %" + pct) +
+        (disLigNedeniyle
+          ? statChip(tier, "Not", "13 lig dışında")
+          : statChip(tier + " pct", "Arşiv", m.tutma + "/" + m.toplam + " · %" + pct)) +
         '</div>';
     }
     inner += '<div class="chip-row">' +
@@ -921,10 +928,17 @@
 
     if (tier){
       const pct = Math.round(m.tutmaOrani * 100);
+      // Kombinasyon arşivi %100 tutmuş olsa bile lig takip ettiğimiz 13'ün
+      // dışındaysa etiket "olasi" kalır (bkz. guvenHesapla) — bu durumda
+      // "%100" yazan bir Arşiv çipi "Olası" rozetinin yanında çelişkili
+      // görünür, o yüzden burada nedeni düz yazıyla açıklıyoruz.
+      const disLigNedeniyle = tier === "olasi" && m.ligUygun === false && m.toplam >= 3 && m.tutmaOrani === 1;
       inner += '<div class="chip-row">' +
         statChip(tier, "Güven", tier === "kesin" ? "Kesin" : "Olası") +
         statChip(tier, "Kombinasyon", Math.floor(m.iymsKg) + " / " + Math.floor(m.altUst6)) +
-        statChip(tier + " pct", "Arşiv", m.tutma + "/" + m.toplam + " · %" + pct) +
+        (disLigNedeniyle
+          ? statChip(tier, "Not", "13 lig dışında")
+          : statChip(tier + " pct", "Arşiv", m.tutma + "/" + m.toplam + " · %" + pct)) +
         '</div>';
     }
     if (canliKgOran != null || donukOranVar){
