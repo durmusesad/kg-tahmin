@@ -154,6 +154,12 @@ ${ORTAK_STIL}
   .filtreler input[type=text]{width:100%; padding:8px 9px; border:1.5px solid var(--border); border-radius:8px; font-size:13.5px; background:#fff; color:var(--ink);}
   .filtreler input[type=text]:focus{outline:none; border-color:var(--accent);}
   .mini-sayac{font-size:11.5px; color:var(--ink-soft); margin:-4px 0 10px;}
+  .sayfalama{display:flex; flex-wrap:wrap; gap:5px; margin-top:12px; align-items:center;}
+  .sayfalama button{min-width:30px; padding:6px 8px; border:1.5px solid var(--border); border-radius:7px; background:#fff; color:var(--ink); font-size:12.5px; font-weight:700; cursor:pointer;}
+  .sayfalama button:hover:not(:disabled){background:#0000000f;}
+  .sayfalama button:disabled{opacity:.4; cursor:default;}
+  .sayfalama button.aktif{background:var(--accent); border-color:var(--accent); color:#fff;}
+  .sayfalama .sayfa-nokta{padding:0 2px; color:var(--ink-soft); font-size:12.5px;}
   .filtreler .filtre-buton-sutun{flex:0 0 auto; min-width:auto;}
   .temizle-btn{padding:8.5px 14px; border:1.5px solid var(--border); border-radius:8px; background:#fff; color:var(--ink-soft); font-size:12.5px; font-weight:700; cursor:pointer; white-space:nowrap;}
   .temizle-btn:hover{background:#0000000f; color:var(--ink);}
@@ -322,6 +328,7 @@ ${ORTAK_STIL}
           <tbody id="govdeGunlukTamamlanan"><tr><td colspan="9" class="bos">Y\xFCkleniyor\u2026</td></tr></tbody>
         </table>
       </div>
+      <div class="sayfalama" id="tamamlananSayfalama"></div>
     </div>
   </div>
 
@@ -365,6 +372,8 @@ ${ORTAK_STIL}
 
   var TUM_KAYITLAR = [];
   var TUM_TAMAMLANAN = []; // Analiz sekmesi, "Tamamlanan" tablosunun ham verisi
+  var TAMAMLANAN_SAYFA_BOYUTU = 25;
+  var tamamlananSayfa = 1;
 
   function eklenmeGoster(k){
     if (!k.eklenmeZamani) return "";
@@ -526,22 +535,68 @@ ${ORTAK_STIL}
       return sira === "eklenme_eski" ? fark : -fark;
     });
 
-    $("govdeGunlukTamamlanan").innerHTML = liste.length
-      ? liste.map(gunlukSatirTamamlananHtml).join("")
+    var toplamSayfa = Math.max(1, Math.ceil(liste.length / TAMAMLANAN_SAYFA_BOYUTU));
+    if (tamamlananSayfa > toplamSayfa) tamamlananSayfa = toplamSayfa;
+    if (tamamlananSayfa < 1) tamamlananSayfa = 1;
+    var baslangic = (tamamlananSayfa - 1) * TAMAMLANAN_SAYFA_BOYUTU;
+    var sayfaListesi = liste.slice(baslangic, baslangic + TAMAMLANAN_SAYFA_BOYUTU);
+
+    $("govdeGunlukTamamlanan").innerHTML = sayfaListesi.length
+      ? sayfaListesi.map(gunlukSatirTamamlananHtml).join("")
       : '<tr><td colspan="9" class="bos">Kriterlere uyan kayıt yok.</td></tr>';
-    $("tamamlananSayac").textContent = liste.length + " / " + TUM_TAMAMLANAN.length + " kayıt";
+    $("tamamlananSayac").textContent = liste.length + " / " + TUM_TAMAMLANAN.length + " kayıt"
+      + (liste.length ? " — sayfa " + tamamlananSayfa + " / " + toplamSayfa : "");
+    tamamlananSayfalamaCiz(toplamSayfa);
   }
 
-  $("tamamlananArama").addEventListener("input", tamamlananListele);
-  $("tamamlananLig").addEventListener("change", tamamlananListele);
-  $("tamamlananKg").addEventListener("change", tamamlananListele);
-  $("tamamlananSirala").addEventListener("change", tamamlananListele);
+  function tamamlananSayfayaGit(sayfa){
+    tamamlananSayfa = sayfa;
+    tamamlananListele();
+  }
+
+  function tamamlananFiltreDegisti(){
+    tamamlananSayfa = 1;
+    tamamlananListele();
+  }
+
+  function tamamlananSayfalamaCiz(toplamSayfa){
+    var kutu = $("tamamlananSayfalama");
+    if (toplamSayfa <= 1) { kutu.innerHTML = ""; return; }
+
+    var parcalar = [];
+    parcalar.push('<button type="button" data-sayfa="' + (tamamlananSayfa - 1) + '"' + (tamamlananSayfa === 1 ? " disabled" : "") + '>‹</button>');
+
+    var gosterilecek = [];
+    for (var s = 1; s <= toplamSayfa; s++){
+      if (s === 1 || s === toplamSayfa || Math.abs(s - tamamlananSayfa) <= 1) gosterilecek.push(s);
+    }
+    var onceki = 0;
+    gosterilecek.forEach(function(s){
+      if (onceki && s - onceki > 1) parcalar.push('<span class="sayfa-nokta">…</span>');
+      parcalar.push('<button type="button" data-sayfa="' + s + '" class="' + (s === tamamlananSayfa ? "aktif" : "") + '">' + s + '</button>');
+      onceki = s;
+    });
+
+    parcalar.push('<button type="button" data-sayfa="' + (tamamlananSayfa + 1) + '"' + (tamamlananSayfa === toplamSayfa ? " disabled" : "") + '>›</button>');
+    kutu.innerHTML = parcalar.join("");
+  }
+
+  $("tamamlananArama").addEventListener("input", tamamlananFiltreDegisti);
+  $("tamamlananLig").addEventListener("change", tamamlananFiltreDegisti);
+  $("tamamlananKg").addEventListener("change", tamamlananFiltreDegisti);
+  $("tamamlananSirala").addEventListener("change", tamamlananFiltreDegisti);
   $("tamamlananTemizleBtn").addEventListener("click", function(){
     $("tamamlananArama").value = "";
     $("tamamlananLig").value = "";
     $("tamamlananKg").value = "";
     $("tamamlananSirala").value = "eklenme_yeni";
-    tamamlananListele();
+    tamamlananFiltreDegisti();
+  });
+  $("tamamlananSayfalama").addEventListener("click", function(ev){
+    var btn = ev.target.closest("button[data-sayfa]");
+    if (!btn || btn.disabled) return;
+    var hedefSayfa = Number(btn.getAttribute("data-sayfa"));
+    if (Number.isFinite(hedefSayfa)) tamamlananSayfayaGit(hedefSayfa);
   });
 
   var SEKME_BUTONLARI = document.querySelectorAll(".sekme-btn");
