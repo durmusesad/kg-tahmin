@@ -105,6 +105,19 @@ function toIstanbulIso(date) {
 // veri üzerinde ucuz) burada, guvenHesapla() ile yapılır.
 const BULTEN_KV_ANAHTARI = "bulten:guncel";
 const BULTEN_MAX_YAS_MS = 15 * 60 * 1000;
+// 2026-08-24: Kırmızı bot da (kg_bulten_pusher.py) artık TR 03:00-09:00
+// arası uyuyor (KV günlük 1000 yazma kotasını aşmamak için — bkz. proje
+// notu). O pencerede yeni push gelmeyeceği için 15dk'lık normal tazelik
+// eşiği aşılır ve /api/bulten hataya düşerdi. Bu saatlerde eşik genişletilip
+// son bilinen (biraz bayat ama var olan) veri gösterilmeye devam edilir —
+// zaten o saatte oran neredeyse hiç değişmiyor. Aktif saatlerde (09:00-03:00)
+// eşik değişmedi: gerçek bir arıza olursa hâlâ hızlıca fark edilsin diye.
+const BULTEN_MAX_YAS_UYKU_MS = 7 * 3600 * 1000;
+
+function trUykuSaatiMi(simdiMs) {
+  const trSaat = (new Date(simdiMs).getUTCHours() + 3) % 24; // TR sabit UTC+3, DST yok
+  return trSaat >= 3 && trSaat < 9;
+}
 
 async function bultenGuncelleIsle(request, env) {
   const anahtar = request.headers.get("X-Bulten-Key");
@@ -151,7 +164,9 @@ async function guncelMaclariAl(env) {
   } catch (err) {
     return null;
   }
-  if (Date.now() - (kayit.alinmaZamaniMs || 0) > BULTEN_MAX_YAS_MS) return null;
+  const simdiMs = Date.now();
+  const esikMs = trUykuSaatiMi(simdiMs) ? BULTEN_MAX_YAS_UYKU_MS : BULTEN_MAX_YAS_MS;
+  if (simdiMs - (kayit.alinmaZamaniMs || 0) > esikMs) return null;
   return { maclar: kayit.maclar || [], guncellemeZamani: kayit.guncellemeZamani };
 }
 
@@ -432,8 +447,24 @@ async function snapshotAlVeYaz(env, maclar) {
     if (!Number.isFinite(macMs)) continue;
     const kalanDk = (macMs - simdiMs) / 60000;
     if (kalanDk < 0 || kalanDk > 2) continue; // sadece kickoff'a en fazla 2 dk kalan maçlar
-    const kayit = { ...m, ...tahmin, tahminZamani: toIstanbulIso(new Date()) };
-    yazmalar.push(env.KG_SNAPSHOTS.put(m.id, JSON.stringify(kayit), { expirationTtl: 6 * 3600 }));
+
+    // 2026-08-24: Aynı maç kickoff'a 0-2dk'lık pencerede (tick'ler 1dk arayla
+    // çalıştığı için) genelde 2 ayrı tick'e denk geliyordu — eskiden HER
+    // tick'te tekrar tekrar yazılıyordu. Bu, günlük 1000 KV yazma kotasını
+    // zorlayan ana kaynaklardan biriydi (bkz. proje notu). Artık önce zaten
+    // donmuş mu diye bakılıyor; varsa bir daha dokunulmuyor (zaten donmuş
+    // oranın "değişmemesi" amaçlanıyordu, bu hem doğru hem ucuz).
+    yazmalar.push((async () => {
+      let mevcut = null;
+      try {
+        mevcut = await env.KG_SNAPSHOTS.get(m.id);
+      } catch (err) { /* okunamadıysa güvenli tarafta kal, yine de yaz */ }
+      if (mevcut) return;
+      const kayit = { ...m, ...tahmin, tahminZamani: toIstanbulIso(new Date()) };
+      try {
+        await env.KG_SNAPSHOTS.put(m.id, JSON.stringify(kayit), { expirationTtl: 6 * 3600 });
+      } catch (err) { /* sessizce vazgeç, gelecek dakika tekrar denenir */ }
+    })());
     // 2026-08-24: "ana veri"ye yazma şartı sadeleştirildi — artık SADECE
     // 13 izinli ligden biri olması yeterli, "Kesin" (guven==="kesin") şartı
     // KALDIRILDI. Amaç: sadece nadir görülen Kesin eşleşmeleri değil, bu
