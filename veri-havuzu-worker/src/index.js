@@ -234,6 +234,10 @@ ${ORTAK_STIL}
     <div class="panel" id="panelAna">
       <div class="filtreler">
         <div>
+          <label for="filtreLig">Lig</label>
+          <select id="filtreLig"><option value="">T\xFCm\xFC</option></select>
+        </div>
+        <div>
           <label for="filtreKg">\u0130Y/MS KG EVET</label>
           <select id="filtreKg"><option value="">T\xFCm\xFC</option>${secenekler}</select>
         </div>
@@ -244,7 +248,8 @@ ${ORTAK_STIL}
         <div>
           <label for="siralama">S\u0131rala</label>
           <select id="siralama">
-            <option value="eklenme_yeni" selected>Son Eklenenler \xD6nce</option>
+            <option value="lig_asc" selected>Lig (A-Z, gruplu)</option>
+            <option value="eklenme_yeni">Son Eklenenler \xD6nce</option>
             <option value="eklenme_eski">\u0130lk Eklenenler \xD6nce</option>
             <option value="varsayilan">Varsay\u0131lan S\u0131ra</option>
           </select>
@@ -370,6 +375,18 @@ ${ORTAK_STIL}
     return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){ return harita[c]; });
   }
 
+  // Ana veride eski kayıtlar BÜYÜK HARF, yeniler Başlık Harfleri ile
+  // yazılmış (ör. "İSPANYA LA LİGA" / "İspanya La Liga") — aynı lig farklı
+  // yazımlarla ayrı gruplara bölünmesin diye filtre/gruplama hep bu normalize
+  // anahtarla yapılıyor, kullanıcıya ise tutarlı bir Başlık Harfleri etiketi
+  // gösteriliyor.
+  function ligAnahtari(l){ return String(l || "").trim().toLocaleUpperCase("tr-TR"); }
+  function ligGosterEtiket(l){
+    return String(l || "").trim().toLocaleLowerCase("tr-TR").replace(/(^|\s)\S/g, function(c){
+      return c.toLocaleUpperCase("tr-TR");
+    });
+  }
+
   var TUM_KAYITLAR = [];
   var TUM_TAMAMLANAN = []; // Analiz sekmesi, "Tamamlanan" tablosunun ham verisi
   var TAMAMLANAN_SAYFA_BOYUTU = 25;
@@ -390,7 +407,7 @@ ${ORTAK_STIL}
     var msSinif = k.kgVar === true ? "ms-yesil" : "";
     return "<tr>" +
       "<td>" + escapeHtml(k.hafta) + "</td>" +
-      "<td class='lig'>" + escapeHtml(k.lig) + "</td>" +
+      "<td class='lig'>" + escapeHtml(ligGosterEtiket(k.lig)) + "</td>" +
       "<td>" + escapeHtml(k.iy) + "</td>" +
       "<td class='" + msSinif + "'>" + escapeHtml(k.ms) + "</td>" +
       "<td>" + (k.iymsKgOran != null ? k.iymsKgOran : "") + "</td>" +
@@ -403,11 +420,29 @@ ${ORTAK_STIL}
       "</tr>";
   }
 
+  function anaLigSecenekleriDoldur(){
+    var anahtarlar = [];
+    var gorulen = {};
+    for (var i = 0; i < TUM_KAYITLAR.length; i++){
+      var a = ligAnahtari(TUM_KAYITLAR[i].lig);
+      if (a && !gorulen[a]) { gorulen[a] = true; anahtarlar.push(a); }
+    }
+    anahtarlar.sort(function(x, y){ return x.localeCompare(y, "tr"); });
+    var sel = $("filtreLig");
+    var mevcut = sel.value;
+    sel.innerHTML = '<option value="">T\u00fcm\u00fc</option>' + anahtarlar.map(function(a){
+      return '<option value="' + escapeHtml(a) + '">' + escapeHtml(ligGosterEtiket(a)) + '</option>';
+    }).join("");
+    if (anahtarlar.indexOf(mevcut) !== -1) sel.value = mevcut;
+  }
+
   function listele(){
+    var lig = $("filtreLig").value;
     var kg = $("filtreKg").value;
     var gol = $("filtreGol").value;
     var sira = $("siralama").value;
     var liste = TUM_KAYITLAR.slice();
+    if (lig !== "") liste = liste.filter(function(k){ return ligAnahtari(k.lig) === lig; });
     if (kg !== "") liste = liste.filter(function(k){ return String(k.iymsKgOran) === kg; });
     if (gol !== "") liste = liste.filter(function(k){ return String(k.altiGolOran) === gol; });
     if (sira === "eklenme_yeni" || sira === "eklenme_eski"){
@@ -416,6 +451,15 @@ ${ORTAK_STIL}
         var fark = String(a.eklenmeZamani).localeCompare(String(b.eklenmeZamani));
         return sira === "eklenme_yeni" ? -fark : fark;
       });
+    } else if (sira === "lig_asc"){
+      // Varsay\u0131lan: ayn\u0131 lig alt alta gelsin diye \u00f6nce lig'e (normalize
+      // anahtarla) g\u00f6re, grup i\u00e7inde de hafta/eklenme zaman\u0131na g\u00f6re s\u0131rala.
+      liste.sort(function(a, b){
+        var farkLig = ligAnahtari(a.lig).localeCompare(ligAnahtari(b.lig), "tr");
+        if (farkLig !== 0) return farkLig;
+        return String(a.hafta || "").localeCompare(String(b.hafta || "")) ||
+          String(a.eklenmeZamani || "").localeCompare(String(b.eklenmeZamani || ""));
+      });
     }
     $("govde").innerHTML = liste.length
       ? liste.map(satirHtml).join("")
@@ -423,13 +467,15 @@ ${ORTAK_STIL}
     $("sayac").textContent = liste.length + " / " + TUM_KAYITLAR.length + " kay\u0131t";
   }
 
+  $("filtreLig").addEventListener("change", listele);
   $("filtreKg").addEventListener("change", listele);
   $("filtreGol").addEventListener("change", listele);
   $("siralama").addEventListener("change", listele);
   $("anaTemizleBtn").addEventListener("click", function(){
+    $("filtreLig").value = "";
     $("filtreKg").value = "";
     $("filtreGol").value = "";
-    $("siralama").value = "eklenme_yeni";
+    $("siralama").value = "lig_asc";
     listele();
   });
 
@@ -615,6 +661,7 @@ ${ORTAK_STIL}
     .then(function(r){ if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
     .then(function(data){
       TUM_KAYITLAR = (data.kayitlar || []).map(function(k, i){ k._idx = i; return k; });
+      anaLigSecenekleriDoldur();
       listele();
     })
     .catch(function(){

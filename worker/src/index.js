@@ -424,9 +424,18 @@ const IZIN_VERILEN_LIG_ANAHTAR_KELIMELERI = [
   ["güney kore", "k lig"],
 ];
 
+// 2026-08-24: "Hollanda Eredivisie Kadınlar" gibi kadın/altyapı/yedek
+// liglerinin ["hollanda","eredivisie"] gibi gevşek anahtar-kelime
+// eşleşmesinden (sadece iki kelimenin metinde geçmesine bakıyor, aralarına
+// başka kelime girmesini engellemiyordu) sızıp ana veriye yazıldığı görüldü.
+// Bu liglerin hiçbiri 13 izinli erkek A takımı ligi değil — isimde bu tür bir
+// işaret varsa erken çıkılıp fuzzy eşleşme hiç denenmiyor.
+const IZIN_VERILMEYEN_LIG_ISARETLERI = /kad[ıi]n|bayan|women|female|u1[0-9]\b|u2[0-9]\b|rezerv|yedek|b tak[ıi]m/;
+
 function ligIzinliMi(lig) {
   const temel = String(lig || "").split(",")[0].replace(/\s+/g, " ").trim().toLocaleLowerCase("tr");
   if (!temel) return false;
+  if (IZIN_VERILMEYEN_LIG_ISARETLERI.test(temel)) return false;
   if (IZIN_VERILEN_LIG_TEMEL_ADLARI.has(temel)) return true;
   return IZIN_VERILEN_LIG_ANAHTAR_KELIMELERI.some(([a, b]) => temel.includes(a) && temel.includes(b));
 }
