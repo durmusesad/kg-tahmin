@@ -264,6 +264,7 @@ ${ORTAK_STIL}
           <button type="button" class="temizle-btn" id="anaTemizleBtn">Filtreleri Temizle</button>
         </div>
       </div>
+      <div class="mini-sayac" id="anaSayac">\u2013</div>
       <div class="tablo-kutu">
         <table>
           <thead>
@@ -378,9 +379,9 @@ ${ORTAK_STIL}
       <div class="tablo-kutu">
         <table>
           <thead>
-            <tr><th>LİG</th><th>MAÇ</th><th>TAHMİN</th><th>DK / SKOR</th><th>İDDAA ORANI</th><th>DURUM</th><th>SİNYAL</th></tr>
+            <tr><th>LİG</th><th>MAÇ</th><th>TAHMİN</th><th>DK / SKOR</th><th>ÜST ORANI</th><th>ALT ORANI</th><th>DURUM</th><th>SİNYAL</th></tr>
           </thead>
-          <tbody id="govdeIddaa"><tr><td colspan="7" class="bos">Yükleniyor…</td></tr></tbody>
+          <tbody id="govdeIddaa"><tr><td colspan="8" class="bos">Yükleniyor…</td></tr></tbody>
         </table>
       </div>
       <div class="sayfalama" id="iddaaSayfalama"></div>
@@ -432,7 +433,12 @@ ${ORTAK_STIL}
   // gösteriliyor.
   function ligAnahtari(l){ return String(l || "").trim().toLocaleUpperCase("tr-TR"); }
   function ligGosterEtiket(l){
-    return String(l || "").trim().toLocaleLowerCase("tr-TR").replace(/(^|\s)\S/g, function(c){
+    // NOT: bu fonksiyon bir JS template literal (tabloSayfasiHtml) icinde
+    // yaziliyor, o yuzden \s'nin taraycidaki regex motoruna dogru ulasmasi
+    // icin burada \\s (cift backslash) yazilmasi sart - tek backslash disari
+    // sizip "d"/"s" harfine donusuyor (2026-08-25'te iddaa tahmin etiketinde
+    // ayni hata bulunup duzeltilirken bu fonksiyonda da tespit edildi).
+    return String(l || "").trim().toLocaleLowerCase("tr-TR").replace(/(^|\\s)\\S/g, function(c){
       return c.toLocaleUpperCase("tr-TR");
     });
   }
@@ -515,6 +521,7 @@ ${ORTAK_STIL}
       ? liste.map(satirHtml).join("")
       : '<tr><td colspan="8" class="bos">Kriterlere uyan kay\u0131t yok.</td></tr>';
     $("sayac").textContent = liste.length + " / " + TUM_KAYITLAR.length + " kay\u0131t";
+    $("anaSayac").textContent = liste.length + " / " + TUM_KAYITLAR.length + " kay\u0131t";
   }
 
   $("filtreLig").addEventListener("change", listele);
@@ -707,29 +714,40 @@ ${ORTAK_STIL}
     mac_bulunamadi: "durum-mac-yok", hata: "durum-hata",
   };
 
-  // "Alt/Üst 1.5" ya da "1. Yarı Alt/Üst 0.5" market adından + k.yon'dan
-  // ("Üst"/"Alt") kompakt, tek bakışta anlaşılan bir tahmin etiketi üretir:
-  // örn. "MS Üst 1.5" ya da "İY Üst 0.5".
+  // Botun Telegram'a attığı sinyal metni ("MS 1.5 ÜST oynayabilirsin" gibi)
+  // tam olarak nasılsa tahmin sütunu da öyle görünsün diye buradan sadece
+  // sondaki "oynayabilirsin" ekini kırpıyoruz — sayı/yön botun yazdığı
+  // BİREBİR. k.tahmin hiç yoksa (beklenmedik durum) market+yon'dan geri
+  // düşüş yapılır.
   function iddaaTahminEtiketi(k){
+    var t = String(k.tahmin || "").trim();
+    if (t) {
+      // NOT: bu dosya bir JS template literal icinde oldugu icin \\s (cift
+      // backslash) yazilmasi sart, tek backslash disari sizip "s" harfine
+      // donusuyor (bkz. ligGosterEtiket'teki not).
+      t = t.replace(/\\s*oynayabilirsin\\.?!?\\s*$/i, "").trim();
+      if (t) return escapeHtml(t);
+    }
     var market = k.market || "";
     var iyMi = market.indexOf("Yarı") !== -1;
-    var cizgiEslesme = market.match(/[\d.,]+\s*$/);
+    var cizgiEslesme = market.match(/[\\d.,]+\\s*$/);
     var cizgi = cizgiEslesme ? cizgiEslesme[0].trim() : "";
     var govde = (k.yon ? k.yon + (cizgi ? " " + cizgi : "") : "").trim();
-    if (!govde) return escapeHtml(k.tahmin || k.taktik || "");
+    if (!govde) return escapeHtml(k.taktik || "");
     return escapeHtml((iyMi ? "İY " : "MS ") + govde);
   }
 
-  // Botun önerdiği yönü kalın/yeşil, karşı yönü soluk gösterir — kullanıcı
-  // hangi oranın "bizim tahmin" olduğunu hemen görsün diye.
-  function iddaaOranHucresi(k){
+  // Botun önerdiği yön kalın/koyu yeşil, karşı yön normal renkte — her biri
+  // KENDİ sütununda (ÜST/ALT). Market kapalı/bulunamadı/hata ise ikisi de "–".
+  function iddaaUstHucresi(k){
     if (k.durum !== "acik" || k.oran == null) return "<span style='color:var(--ink-soft);'>–</span>";
-    var digerYon = k.yon === "Üst" ? "Alt" : "Üst";
-    var hucre = "<b style='color:#2e7d32;'>" + escapeHtml(k.yon || "") + " " + escapeHtml(String(k.oran)) + "</b>";
-    if (k.digerOran != null) {
-      hucre += " <span style='color:var(--ink-soft); font-size:11.5px;'>(" + escapeHtml(digerYon) + " " + escapeHtml(String(k.digerOran)) + ")</span>";
-    }
-    return hucre;
+    if (k.yon === "Üst") return "<b style='color:#2e7d32;'>" + escapeHtml(String(k.oran)) + "</b>";
+    return k.digerOran != null ? escapeHtml(String(k.digerOran)) : "<span style='color:var(--ink-soft);'>–</span>";
+  }
+  function iddaaAltHucresi(k){
+    if (k.durum !== "acik" || k.oran == null) return "<span style='color:var(--ink-soft);'>–</span>";
+    if (k.yon === "Alt") return "<b style='color:#2e7d32;'>" + escapeHtml(String(k.oran)) + "</b>";
+    return k.digerOran != null ? escapeHtml(String(k.digerOran)) : "<span style='color:var(--ink-soft);'>–</span>";
   }
 
   function iddaaSatirHtml(k){
@@ -741,7 +759,8 @@ ${ORTAK_STIL}
       "<td>" + escapeHtml(k.home) + " - " + escapeHtml(k.away) + "</td>" +
       "<td><b>" + iddaaTahminEtiketi(k) + "</b></td>" +
       "<td>" + (k.dk != null ? k.dk + ". dk" : "") + (k.skorEv != null && k.skorDep != null ? " (" + k.skorEv + "-" + k.skorDep + ")" : "") + "</td>" +
-      "<td>" + iddaaOranHucresi(k) + "</td>" +
+      "<td>" + iddaaUstHucresi(k) + "</td>" +
+      "<td>" + iddaaAltHucresi(k) + "</td>" +
       "<td><span class='durum-etiket " + sinif + "'>" + escapeHtml(etiket) + "</span></td>" +
       "<td>" + eklenmeGosterGenel(k.eklenmeZamani) + "</td>" +
       "</tr>";
@@ -800,7 +819,7 @@ ${ORTAK_STIL}
 
     $("govdeIddaa").innerHTML = sayfaListesi.length
       ? sayfaListesi.map(iddaaSatirHtml).join("")
-      : '<tr><td colspan="7" class="bos">Kriterlere uyan kayıt yok.</td></tr>';
+      : '<tr><td colspan="8" class="bos">Kriterlere uyan kayıt yok.</td></tr>';
     $("iddaaSayac").textContent = liste.length + " / " + TUM_IDDAA.length + " kayıt"
       + (liste.length ? " — sayfa " + iddaaSayfa + " / " + toplamSayfa : "");
     iddaaSayfalamaCiz(toplamSayfa);
@@ -863,7 +882,7 @@ ${ORTAK_STIL}
         SEKME_YUKLENDI.iddaa = true;
       })
       .catch(function(){
-        $("govdeIddaa").innerHTML = '<tr><td colspan="7" class="bos">Veri yüklenemedi.</td></tr>';
+        $("govdeIddaa").innerHTML = '<tr><td colspan="8" class="bos">Veri yüklenemedi.</td></tr>';
         $("iddaaSayac").textContent = "–";
       });
   }
@@ -892,6 +911,7 @@ ${ORTAK_STIL}
     .catch(function(){
       $("govde").innerHTML = '<tr><td colspan="8" class="bos">Veri y\xFCklenemedi.</td></tr>';
       $("sayac").textContent = "\u2013";
+      $("anaSayac").textContent = "\u2013";
     });
 
   // --- Sat\u0131r men\xFCs\xFC (\u22EE): D\xFCzenle / Sil ---------------------------------
