@@ -342,6 +342,38 @@ ${ORTAK_STIL}
     </div>
 
     <div class="panel" id="panelIddaa" hidden>
+      <div class="filtreler">
+        <div>
+          <label for="iddaaArama">Ara</label>
+          <input type="text" id="iddaaArama" placeholder="Takım veya lig ara…">
+        </div>
+        <div>
+          <label for="iddaaLig">Lig</label>
+          <select id="iddaaLig"><option value="">Tümü</option></select>
+        </div>
+        <div>
+          <label for="iddaaDurum">Durum</label>
+          <select id="iddaaDurum">
+            <option value="">Tümü</option>
+            <option value="acik">Oran açık</option>
+            <option value="kapali">Market kapalı</option>
+            <option value="mac_bulunamadi">Maç bulunamadı</option>
+            <option value="hata">Hata</option>
+          </select>
+        </div>
+        <div>
+          <label for="iddaaSirala">Sırala</label>
+          <select id="iddaaSirala">
+            <option value="eklenme_yeni" selected>Son Eklenenler Önce</option>
+            <option value="eklenme_eski">İlk Eklenenler Önce</option>
+            <option value="lig_asc">Lig (A-Z)</option>
+          </select>
+        </div>
+        <div class="filtre-buton-sutun">
+          <label>&nbsp;</label>
+          <button type="button" class="temizle-btn" id="iddaaTemizleBtn">Filtreleri Temizle</button>
+        </div>
+      </div>
       <div class="mini-sayac" id="iddaaSayac">–</div>
       <div class="tablo-kutu">
         <table>
@@ -351,6 +383,7 @@ ${ORTAK_STIL}
           <tbody id="govdeIddaa"><tr><td colspan="7" class="bos">Yükleniyor…</td></tr></tbody>
         </table>
       </div>
+      <div class="sayfalama" id="iddaaSayfalama"></div>
     </div>
   </div>
 
@@ -667,7 +700,7 @@ ${ORTAK_STIL}
 
   var IDDAA_DURUM_ETIKET = {
     acik: "Oran açık", kapali: "Market kapalı",
-    mac_bulunamadi: "iddaa'da maç bulunamadı", hata: "Veri alınamadı",
+    mac_bulunamadi: "Maç bulunamadı", hata: "Veri alınamadı",
   };
   var IDDAA_DURUM_SINIF = {
     acik: "durum-acik", kapali: "durum-kapali",
@@ -714,15 +747,119 @@ ${ORTAK_STIL}
       "</tr>";
   }
 
+  var TUM_IDDAA = [];
+  var IDDAA_SAYFA_BOYUTU = 25;
+  var iddaaSayfa = 1;
+
+  function iddaaLigSecenekleriDoldur(){
+    var ligler = [];
+    var gorulen = {};
+    for (var i = 0; i < TUM_IDDAA.length; i++){
+      var l = TUM_IDDAA[i].lig;
+      if (l && !gorulen[l]) { gorulen[l] = true; ligler.push(l); }
+    }
+    ligler.sort(function(a, b){ return a.localeCompare(b, "tr"); });
+    var sel = $("iddaaLig");
+    var mevcut = sel.value;
+    sel.innerHTML = '<option value="">Tümü</option>' + ligler.map(function(l){
+      return '<option value="' + escapeHtml(l) + '">' + escapeHtml(l) + '</option>';
+    }).join("");
+    if (ligler.indexOf(mevcut) !== -1) sel.value = mevcut;
+  }
+
+  function iddaaAramaEslesir(k, q){
+    var hay = (String(k.home || "") + " " + String(k.away || "") + " " + String(k.lig || "")).toLocaleLowerCase("tr-TR");
+    return hay.indexOf(q) !== -1;
+  }
+
+  function iddaaListele(){
+    var q = $("iddaaArama").value.trim().toLocaleLowerCase("tr-TR");
+    var lig = $("iddaaLig").value;
+    var durum = $("iddaaDurum").value;
+    var sira = $("iddaaSirala").value;
+
+    var liste = TUM_IDDAA.slice();
+    if (q) liste = liste.filter(function(k){ return iddaaAramaEslesir(k, q); });
+    if (lig) liste = liste.filter(function(k){ return k.lig === lig; });
+    if (durum) liste = liste.filter(function(k){ return (k.durum || "hata") === durum; });
+
+    if (sira === "lig_asc") {
+      liste.sort(function(a, b){ return String(a.lig || "").localeCompare(String(b.lig || ""), "tr"); });
+    } else {
+      liste.sort(function(a, b){
+        var fark = String(a.eklenmeZamani || "").localeCompare(String(b.eklenmeZamani || ""));
+        return sira === "eklenme_eski" ? fark : -fark;
+      });
+    }
+
+    var toplamSayfa = Math.max(1, Math.ceil(liste.length / IDDAA_SAYFA_BOYUTU));
+    if (iddaaSayfa > toplamSayfa) iddaaSayfa = toplamSayfa;
+    if (iddaaSayfa < 1) iddaaSayfa = 1;
+    var baslangic = (iddaaSayfa - 1) * IDDAA_SAYFA_BOYUTU;
+    var sayfaListesi = liste.slice(baslangic, baslangic + IDDAA_SAYFA_BOYUTU);
+
+    $("govdeIddaa").innerHTML = sayfaListesi.length
+      ? sayfaListesi.map(iddaaSatirHtml).join("")
+      : '<tr><td colspan="7" class="bos">Kriterlere uyan kayıt yok.</td></tr>';
+    $("iddaaSayac").textContent = liste.length + " / " + TUM_IDDAA.length + " kayıt"
+      + (liste.length ? " — sayfa " + iddaaSayfa + " / " + toplamSayfa : "");
+    iddaaSayfalamaCiz(toplamSayfa);
+  }
+
+  function iddaaSayfayaGit(sayfa){
+    iddaaSayfa = sayfa;
+    iddaaListele();
+  }
+
+  function iddaaFiltreDegisti(){
+    iddaaSayfa = 1;
+    iddaaListele();
+  }
+
+  function iddaaSayfalamaCiz(toplamSayfa){
+    var kutu = $("iddaaSayfalama");
+    if (toplamSayfa <= 1) { kutu.innerHTML = ""; return; }
+    var parcalar = [];
+    parcalar.push('<button type="button" data-sayfa="' + (iddaaSayfa - 1) + '"' + (iddaaSayfa === 1 ? " disabled" : "") + '>‹</button>');
+    var gosterilecek = [];
+    for (var s = 1; s <= toplamSayfa; s++){
+      if (s === 1 || s === toplamSayfa || Math.abs(s - iddaaSayfa) <= 1) gosterilecek.push(s);
+    }
+    var onceki = 0;
+    gosterilecek.forEach(function(s){
+      if (onceki && s - onceki > 1) parcalar.push('<span class="sayfa-nokta">…</span>');
+      parcalar.push('<button type="button" data-sayfa="' + s + '" class="' + (s === iddaaSayfa ? "aktif" : "") + '">' + s + '</button>');
+      onceki = s;
+    });
+    parcalar.push('<button type="button" data-sayfa="' + (iddaaSayfa + 1) + '"' + (iddaaSayfa === toplamSayfa ? " disabled" : "") + '>›</button>');
+    kutu.innerHTML = parcalar.join("");
+  }
+
+  $("iddaaArama").addEventListener("input", iddaaFiltreDegisti);
+  $("iddaaLig").addEventListener("change", iddaaFiltreDegisti);
+  $("iddaaDurum").addEventListener("change", iddaaFiltreDegisti);
+  $("iddaaSirala").addEventListener("change", iddaaFiltreDegisti);
+  $("iddaaTemizleBtn").addEventListener("click", function(){
+    $("iddaaArama").value = "";
+    $("iddaaLig").value = "";
+    $("iddaaDurum").value = "";
+    $("iddaaSirala").value = "eklenme_yeni";
+    iddaaFiltreDegisti();
+  });
+  $("iddaaSayfalama").addEventListener("click", function(ev){
+    var btn = ev.target.closest("button[data-sayfa]");
+    if (!btn || btn.disabled) return;
+    var hedefSayfa = Number(btn.getAttribute("data-sayfa"));
+    if (Number.isFinite(hedefSayfa)) iddaaSayfayaGit(hedefSayfa);
+  });
+
   function iddaaYukle(){
     fetch("/api/iddaa", { cache: "no-store" })
       .then(function(r){ if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
       .then(function(data){
-        var kayitlar = data.kayitlar || [];
-        $("govdeIddaa").innerHTML = kayitlar.length
-          ? kayitlar.map(iddaaSatirHtml).join("")
-          : '<tr><td colspan="7" class="bos">Henüz kayıt yok.</td></tr>';
-        $("iddaaSayac").textContent = kayitlar.length + " kayıt";
+        TUM_IDDAA = data.kayitlar || [];
+        iddaaLigSecenekleriDoldur();
+        iddaaListele();
         SEKME_YUKLENDI.iddaa = true;
       })
       .catch(function(){
