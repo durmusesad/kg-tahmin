@@ -1014,10 +1014,16 @@ async function sinyalIsle(request, env) {
 // Kırmızı bot (DO sunucusu) her GERÇEK sinyalde iddaa.com'un canlı
 // bülteninden o maça ait oranı kendi tarafında bulup buraya POST eder
 // (aynı SINYAL_ANAHTARI ile — ayrı bir secret'a gerek yok, zaten
-// "kırmızı bot sinyali" yetkisi). Burada sadece HAVUZ_KV'nin "iddaa"
-// anahtarındaki kalıcı listeye eklenir; veri-havuzu-drms sitesi bu listeyi
-// okuyup gösterir. "durum" alanı (acik/kapali/mac_bulunamadi/hata) siteye
-// aynen yansıtılır ki oran bulunamadığında kullanıcı bunu görebilsin.
+// "kırmızı bot sinyali" yetkisi). "durum" alanı (acik/kapali/mac_bulunamadi/
+// hata) siteye aynen yansıtılır ki oran bulunamadığında kullanıcı bunu
+// görebilsin.
+//
+// ÖNEMLİ: Her kayıt "iddaa:<zamanDamgasi>:<rastgele>" biçiminde AYRI bir
+// HAVUZ_KV anahtarına yazılır — tek bir "iddaa" anahtarında dizi tutup
+// oku-değiştir-yaz yapmak İKİ sinyal yakın zamanlı (aynı saniyede, farklı
+// maçlar) geldiğinde birbirinin üzerine yazıp veri kaybına yol açıyordu
+// (2026-08-25'te test sırasında görüldü: art arda 2 istek, ilk kayıt ikinci
+// tarafından silinmiş oldu). Ayrı anahtar = her yazma bağımsız, çakışma imkânsız.
 async function iddaaEkleIsle(request, env) {
   const anahtar = request.headers.get("X-Sinyal-Key");
   if (!env.SINYAL_ANAHTARI || anahtar !== env.SINYAL_ANAHTARI) {
@@ -1051,14 +1057,12 @@ async function iddaaEkleIsle(request, env) {
   if (!env.HAVUZ_KV) {
     return jsonResponse({ basarili: false, hata: "HAVUZ_KV bagli degil" }, 500);
   }
+  // Anahtar sıralaması kronolojik kalsın diye zaman damgası sabit 13 haneye
+  // (Date.now() 2286 yılına kadar 13 hane) sıfırla dolduruluyor — leksikografik
+  // sıralama sayısal sıralamayla aynı sonucu versin diye.
+  const anahtarAdi = "iddaa:" + String(Date.now()).padStart(13, "0") + ":" + Math.random().toString(36).slice(2, 8);
   try {
-    const ham = await env.HAVUZ_KV.get("iddaa");
-    const liste = ham ? JSON.parse(ham) : [];
-    liste.push(kayit);
-    // Sınırsız büyümesin — bu liste sinyal-anı anlık görüntüsü, geçmişe
-    // dönük analiz zaten "veri"/"gunluk" anahtarlarında tutuluyor.
-    const sinirli = liste.length > 1000 ? liste.slice(liste.length - 1000) : liste;
-    await env.HAVUZ_KV.put("iddaa", JSON.stringify(sinirli));
+    await env.HAVUZ_KV.put(anahtarAdi, JSON.stringify(kayit));
   } catch (err) {
     return jsonResponse({ basarili: false, hata: "kaydedilemedi" }, 500);
   }

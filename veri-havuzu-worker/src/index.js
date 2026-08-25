@@ -346,9 +346,9 @@ ${ORTAK_STIL}
       <div class="tablo-kutu">
         <table>
           <thead>
-            <tr><th>LİG</th><th>MAÇ</th><th>TAKTİK</th><th>DK / SKOR</th><th>MARKET</th><th>ORAN</th><th>DURUM</th><th>SİNYAL</th></tr>
+            <tr><th>LİG</th><th>MAÇ</th><th>TAHMİN</th><th>DK / SKOR</th><th>İDDAA ORANI</th><th>DURUM</th><th>SİNYAL</th></tr>
           </thead>
-          <tbody id="govdeIddaa"><tr><td colspan="8" class="bos">Yükleniyor…</td></tr></tbody>
+          <tbody id="govdeIddaa"><tr><td colspan="7" class="bos">Yükleniyor…</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -674,21 +674,41 @@ ${ORTAK_STIL}
     mac_bulunamadi: "durum-mac-yok", hata: "durum-hata",
   };
 
+  // "Alt/Üst 1.5" ya da "1. Yarı Alt/Üst 0.5" market adından + k.yon'dan
+  // ("Üst"/"Alt") kompakt, tek bakışta anlaşılan bir tahmin etiketi üretir:
+  // örn. "MS Üst 1.5" ya da "İY Üst 0.5".
+  function iddaaTahminEtiketi(k){
+    var market = k.market || "";
+    var iyMi = market.indexOf("Yarı") !== -1;
+    var cizgiEslesme = market.match(/[\d.,]+\s*$/);
+    var cizgi = cizgiEslesme ? cizgiEslesme[0].trim() : "";
+    var govde = (k.yon ? k.yon + (cizgi ? " " + cizgi : "") : "").trim();
+    if (!govde) return escapeHtml(k.tahmin || k.taktik || "");
+    return escapeHtml((iyMi ? "İY " : "MS ") + govde);
+  }
+
+  // Botun önerdiği yönü kalın/yeşil, karşı yönü soluk gösterir — kullanıcı
+  // hangi oranın "bizim tahmin" olduğunu hemen görsün diye.
+  function iddaaOranHucresi(k){
+    if (k.durum !== "acik" || k.oran == null) return "<span style='color:var(--ink-soft);'>–</span>";
+    var digerYon = k.yon === "Üst" ? "Alt" : "Üst";
+    var hucre = "<b style='color:#2e7d32;'>" + escapeHtml(k.yon || "") + " " + escapeHtml(String(k.oran)) + "</b>";
+    if (k.digerOran != null) {
+      hucre += " <span style='color:var(--ink-soft); font-size:11.5px;'>(" + escapeHtml(digerYon) + " " + escapeHtml(String(k.digerOran)) + ")</span>";
+    }
+    return hucre;
+  }
+
   function iddaaSatirHtml(k){
     var durum = k.durum || "hata";
     var sinif = IDDAA_DURUM_SINIF[durum] || "durum-hata";
     var etiket = IDDAA_DURUM_ETIKET[durum] || durum;
-    var oranMetni = "–";
-    if (durum === "acik" && k.oran != null) {
-      oranMetni = k.yon + " " + k.oran + (k.digerOran != null ? " (" + (k.yon === "Üst" ? "Alt" : "Üst") + " " + k.digerOran + ")" : "");
-    }
     return "<tr>" +
       "<td class='lig'>" + escapeHtml(k.lig || "") + "</td>" +
       "<td>" + escapeHtml(k.home) + " - " + escapeHtml(k.away) + "</td>" +
-      "<td>" + escapeHtml(k.tahmin || k.taktik || "") + "</td>" +
+      "<td><b>" + iddaaTahminEtiketi(k) + "</b></td>" +
       "<td>" + (k.dk != null ? k.dk + ". dk" : "") + (k.skorEv != null && k.skorDep != null ? " (" + k.skorEv + "-" + k.skorDep + ")" : "") + "</td>" +
-      "<td>" + escapeHtml(k.market || "") + "</td>" +
-      "<td>" + escapeHtml(oranMetni) + "</td>" +
+      "<td>" + iddaaOranHucresi(k) + "</td>" +
       "<td><span class='durum-etiket " + sinif + "'>" + escapeHtml(etiket) + "</span></td>" +
       "<td>" + eklenmeGosterGenel(k.eklenmeZamani) + "</td>" +
       "</tr>";
@@ -701,12 +721,12 @@ ${ORTAK_STIL}
         var kayitlar = data.kayitlar || [];
         $("govdeIddaa").innerHTML = kayitlar.length
           ? kayitlar.map(iddaaSatirHtml).join("")
-          : '<tr><td colspan="8" class="bos">Henüz kayıt yok.</td></tr>';
+          : '<tr><td colspan="7" class="bos">Henüz kayıt yok.</td></tr>';
         $("iddaaSayac").textContent = kayitlar.length + " kayıt";
         SEKME_YUKLENDI.iddaa = true;
       })
       .catch(function(){
-        $("govdeIddaa").innerHTML = '<tr><td colspan="8" class="bos">Veri yüklenemedi.</td></tr>';
+        $("govdeIddaa").innerHTML = '<tr><td colspan="7" class="bos">Veri yüklenemedi.</td></tr>';
         $("iddaaSayac").textContent = "–";
       });
   }
@@ -1173,20 +1193,25 @@ var index_default = {
       }
       return jsonResponse({ kayitlar });
     }
-    // İddaa oranları: HAVUZ_KV "iddaa" anahtarı bir dizi (kg-tahmin-bulten
-    // Worker'ının /api/iddaa-ekle uç noktasından, kırmızı bot tarafından
-    // her sinyalde doldurulur). En yeni kayıt en üstte gösterilsin diye
-    // ters çevrilip dönülür.
+    // İddaa oranları: her kayıt kg-tahmin-bulten Worker'ının /api/iddaa-ekle
+    // uç noktasından "iddaa:<zamanDamgasi>:<rastgele>" biçiminde AYRI bir
+    // HAVUZ_KV anahtarına yazılıyor (tek bir dizi anahtarında oku-değiştir-yaz
+    // yakın zamanlı iki sinyalde veri kaybına yol açıyordu — bkz. worker
+    // tarafındaki not). Burada prefix ile listelenip her biri okunur; anahtar
+    // adları zaman damgasıyla başladığı için liste zaten kronolojik (eskiden
+    // yeniye) geliyor, en yeni üstte görünsün diye ters çevrilir.
     if (pathname === "/api/iddaa" && request.method === "GET") {
       if (!await oturumGecerliMi(request, env)) {
         return jsonResponse({ hata: "yetkisiz" }, 401);
       }
       let kayitlar = [];
       try {
-        const ham = await env.HAVUZ_KV.get("iddaa");
-        kayitlar = ham ? JSON.parse(ham) : [];
-        if (!Array.isArray(kayitlar)) kayitlar = [];
-        kayitlar = kayitlar.slice().reverse();
+        const liste = await env.HAVUZ_KV.list({ prefix: "iddaa:", limit: 1000 });
+        const degerler = await Promise.all(liste.keys.map((k) => env.HAVUZ_KV.get(k.name)));
+        kayitlar = degerler.filter(Boolean).map((ham) => {
+          try { return JSON.parse(ham); } catch (err) { return null; }
+        }).filter(Boolean);
+        kayitlar.reverse();
       } catch (err) {
         kayitlar = [];
       }
