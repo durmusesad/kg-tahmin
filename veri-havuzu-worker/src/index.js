@@ -202,6 +202,10 @@ ${ORTAK_STIL}
   .hesap-mesaj.basarili{color:#2e7d32;}
   .hesap-mesaj.hata{color:#b3261e;}
   .bos{padding:24px; text-align:center; color:var(--ink-soft); font-size:13px;}
+  .durum-acik{background:var(--yesil); color:#1f1b16;}
+  .durum-kapali{background:#fff3cd; color:#8a6d1a;}
+  .durum-mac-yok{background:#f5d0d0; color:#8a2f2f;}
+  .durum-hata{background:#f5d0d0; color:#8a2f2f;}
   .sekmeler{display:flex; gap:4px; padding:0 16px; border-bottom:1px solid var(--border); background:var(--card);}
   .sekme-btn{background:none; border:none; padding:11px 14px; font-size:13px; font-weight:700; color:var(--ink-soft); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px;}
   .sekme-btn.aktif{color:var(--accent); border-bottom-color:var(--accent);}
@@ -229,6 +233,7 @@ ${ORTAK_STIL}
   <div class="sekmeler">
     <button type="button" class="sekme-btn aktif" data-sekme="ana">Ana Veri</button>
     <button type="button" class="sekme-btn" data-sekme="gunluk">Analiz</button>
+    <button type="button" class="sekme-btn" data-sekme="iddaa">İddaa Oranları</button>
   </div>
   <div class="wrap">
     <div class="panel" id="panelAna">
@@ -334,6 +339,18 @@ ${ORTAK_STIL}
         </table>
       </div>
       <div class="sayfalama" id="tamamlananSayfalama"></div>
+    </div>
+
+    <div class="panel" id="panelIddaa" hidden>
+      <div class="mini-sayac" id="iddaaSayac">–</div>
+      <div class="tablo-kutu">
+        <table>
+          <thead>
+            <tr><th>LİG</th><th>MAÇ</th><th>TAKTİK</th><th>DK / SKOR</th><th>MARKET</th><th>ORAN</th><th>DURUM</th><th>SİNYAL</th></tr>
+          </thead>
+          <tbody id="govdeIddaa"><tr><td colspan="8" class="bos">Yükleniyor…</td></tr></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -645,6 +662,55 @@ ${ORTAK_STIL}
     if (Number.isFinite(hedefSayfa)) tamamlananSayfayaGit(hedefSayfa);
   });
 
+  // --- Sekme: İddaa Oranları -----------------------------------------
+  SEKME_YUKLENDI.iddaa = false;
+
+  var IDDAA_DURUM_ETIKET = {
+    acik: "Oran açık", kapali: "Market kapalı",
+    mac_bulunamadi: "iddaa'da maç bulunamadı", hata: "Veri alınamadı",
+  };
+  var IDDAA_DURUM_SINIF = {
+    acik: "durum-acik", kapali: "durum-kapali",
+    mac_bulunamadi: "durum-mac-yok", hata: "durum-hata",
+  };
+
+  function iddaaSatirHtml(k){
+    var durum = k.durum || "hata";
+    var sinif = IDDAA_DURUM_SINIF[durum] || "durum-hata";
+    var etiket = IDDAA_DURUM_ETIKET[durum] || durum;
+    var oranMetni = "–";
+    if (durum === "acik" && k.oran != null) {
+      oranMetni = k.yon + " " + k.oran + (k.digerOran != null ? " (" + (k.yon === "Üst" ? "Alt" : "Üst") + " " + k.digerOran + ")" : "");
+    }
+    return "<tr>" +
+      "<td class='lig'>" + escapeHtml(k.lig || "") + "</td>" +
+      "<td>" + escapeHtml(k.home) + " - " + escapeHtml(k.away) + "</td>" +
+      "<td>" + escapeHtml(k.tahmin || k.taktik || "") + "</td>" +
+      "<td>" + (k.dk != null ? k.dk + ". dk" : "") + (k.skorEv != null && k.skorDep != null ? " (" + k.skorEv + "-" + k.skorDep + ")" : "") + "</td>" +
+      "<td>" + escapeHtml(k.market || "") + "</td>" +
+      "<td>" + escapeHtml(oranMetni) + "</td>" +
+      "<td><span class='durum-etiket " + sinif + "'>" + escapeHtml(etiket) + "</span></td>" +
+      "<td>" + eklenmeGosterGenel(k.eklenmeZamani) + "</td>" +
+      "</tr>";
+  }
+
+  function iddaaYukle(){
+    fetch("/api/iddaa", { cache: "no-store" })
+      .then(function(r){ if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function(data){
+        var kayitlar = data.kayitlar || [];
+        $("govdeIddaa").innerHTML = kayitlar.length
+          ? kayitlar.map(iddaaSatirHtml).join("")
+          : '<tr><td colspan="8" class="bos">Henüz kayıt yok.</td></tr>';
+        $("iddaaSayac").textContent = kayitlar.length + " kayıt";
+        SEKME_YUKLENDI.iddaa = true;
+      })
+      .catch(function(){
+        $("govdeIddaa").innerHTML = '<tr><td colspan="8" class="bos">Veri yüklenemedi.</td></tr>';
+        $("iddaaSayac").textContent = "–";
+      });
+  }
+
   var SEKME_BUTONLARI = document.querySelectorAll(".sekme-btn");
   for (var si = 0; si < SEKME_BUTONLARI.length; si++) {
     SEKME_BUTONLARI[si].addEventListener("click", function(ev){
@@ -653,7 +719,9 @@ ${ORTAK_STIL}
       ev.target.classList.add("aktif");
       $("panelAna").hidden = hedef !== "ana";
       $("panelGunluk").hidden = hedef !== "gunluk";
+      $("panelIddaa").hidden = hedef !== "iddaa";
       if (hedef === "gunluk" && !SEKME_YUKLENDI.gunluk) gunlukYukle();
+      if (hedef === "iddaa" && !SEKME_YUKLENDI.iddaa) iddaaYukle();
     });
   }
 
@@ -1100,6 +1168,25 @@ var index_default = {
         const obj = ham ? JSON.parse(ham) : {};
         kayitlar = Object.values(obj || {});
         kayitlar.sort((a, b) => String(a.macZamani || "").localeCompare(String(b.macZamani || "")));
+      } catch (err) {
+        kayitlar = [];
+      }
+      return jsonResponse({ kayitlar });
+    }
+    // İddaa oranları: HAVUZ_KV "iddaa" anahtarı bir dizi (kg-tahmin-bulten
+    // Worker'ının /api/iddaa-ekle uç noktasından, kırmızı bot tarafından
+    // her sinyalde doldurulur). En yeni kayıt en üstte gösterilsin diye
+    // ters çevrilip dönülür.
+    if (pathname === "/api/iddaa" && request.method === "GET") {
+      if (!await oturumGecerliMi(request, env)) {
+        return jsonResponse({ hata: "yetkisiz" }, 401);
+      }
+      let kayitlar = [];
+      try {
+        const ham = await env.HAVUZ_KV.get("iddaa");
+        kayitlar = ham ? JSON.parse(ham) : [];
+        if (!Array.isArray(kayitlar)) kayitlar = [];
+        kayitlar = kayitlar.slice().reverse();
       } catch (err) {
         kayitlar = [];
       }

@@ -1008,6 +1008,64 @@ async function sinyalIsle(request, env) {
   return jsonResponse({ eslesti: true, oranAcik: oranDurumu ? oranDurumu.pazarAcik : null, nesineMacId, eslesmeSkoru: eslesme.skor });
 }
 
+// ============================================================
+// İDDAA ORANI KAYDI (veri havuzu sitesinin 3. bölümü — 2026-08-25)
+// ============================================================
+// Kırmızı bot (DO sunucusu) her GERÇEK sinyalde iddaa.com'un canlı
+// bülteninden o maça ait oranı kendi tarafında bulup buraya POST eder
+// (aynı SINYAL_ANAHTARI ile — ayrı bir secret'a gerek yok, zaten
+// "kırmızı bot sinyali" yetkisi). Burada sadece HAVUZ_KV'nin "iddaa"
+// anahtarındaki kalıcı listeye eklenir; veri-havuzu-drms sitesi bu listeyi
+// okuyup gösterir. "durum" alanı (acik/kapali/mac_bulunamadi/hata) siteye
+// aynen yansıtılır ki oran bulunamadığında kullanıcı bunu görebilsin.
+async function iddaaEkleIsle(request, env) {
+  const anahtar = request.headers.get("X-Sinyal-Key");
+  if (!env.SINYAL_ANAHTARI || anahtar !== env.SINYAL_ANAHTARI) {
+    return jsonResponse({ hata: "yetkisiz" }, 401);
+  }
+
+  let govde;
+  try {
+    govde = await request.json();
+  } catch (err) {
+    return jsonResponse({ hata: "gecersiz govde" }, 400);
+  }
+
+  const {
+    home, away, lig, taktik, tahmin, dk, skorEv, skorDep, gun, zaman,
+    durum, market, yon, oran, digerOran,
+  } = govde || {};
+  if (!home || !away || !taktik) {
+    return jsonResponse({ hata: "home, away, taktik alanlari zorunlu" }, 400);
+  }
+
+  const kayit = {
+    home, away, lig: lig ?? null, taktik, tahmin: tahmin ?? null,
+    dk: dk ?? null, skorEv: skorEv ?? null, skorDep: skorDep ?? null,
+    gun: gun ?? null, zaman: zaman ?? null,
+    durum: durum ?? "hata", market: market ?? null, yon: yon ?? null,
+    oran: oran ?? null, digerOran: digerOran ?? null,
+    eklenmeZamani: toIstanbulIso(new Date()),
+  };
+
+  if (!env.HAVUZ_KV) {
+    return jsonResponse({ basarili: false, hata: "HAVUZ_KV bagli degil" }, 500);
+  }
+  try {
+    const ham = await env.HAVUZ_KV.get("iddaa");
+    const liste = ham ? JSON.parse(ham) : [];
+    liste.push(kayit);
+    // Sınırsız büyümesin — bu liste sinyal-anı anlık görüntüsü, geçmişe
+    // dönük analiz zaten "veri"/"gunluk" anahtarlarında tutuluyor.
+    const sinirli = liste.length > 1000 ? liste.slice(liste.length - 1000) : liste;
+    await env.HAVUZ_KV.put("iddaa", JSON.stringify(sinirli));
+  } catch (err) {
+    return jsonResponse({ basarili: false, hata: "kaydedilemedi" }, 500);
+  }
+
+  return jsonResponse({ basarili: true });
+}
+
 function jsonResponse(obj, status, extraHeaders) {
   return new Response(JSON.stringify(obj), {
     status: status || 200,
@@ -1033,6 +1091,10 @@ export default {
       return new Response(indexHtml, {
         headers: { "Content-Type": "text/html; charset=utf-8" },
       });
+    }
+
+    if (pathname === "/api/iddaa-ekle" && request.method === "POST") {
+      return iddaaEkleIsle(request, env);
     }
 
     if (pathname === "/api/sinyal" && request.method === "POST") {
