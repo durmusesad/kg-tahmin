@@ -1039,7 +1039,7 @@ async function iddaaEkleIsle(request, env) {
 
   const {
     home, away, lig, taktik, tahmin, dk, skorEv, skorDep, gun, zaman,
-    durum, market, yon, oran, digerOran,
+    durum, market, yon, oran, digerOran, botAnahtar,
   } = govde || {};
   if (!home || !away || !taktik) {
     return jsonResponse({ hata: "home, away, taktik alanlari zorunlu" }, 400);
@@ -1051,6 +1051,11 @@ async function iddaaEkleIsle(request, env) {
     gun: gun ?? null, zaman: zaman ?? null,
     durum: durum ?? "hata", market: market ?? null, yon: yon ?? null,
     oran: oran ?? null, digerOran: digerOran ?? null,
+    // Kırmızı bot'un kendi kalıcı log anahtarı — sinyalin nihai sonucu
+    // (TUTTU/TUTMADI) belli olduğunda bu kaydı bulup güncellemek için
+    // kullanılır (bkz. iddaaSonucGuncelleIsle).
+    botAnahtar: botAnahtar ?? null,
+    sonuc: null,
     eklenmeZamani: toIstanbulIso(new Date()),
   };
 
@@ -1068,6 +1073,51 @@ async function iddaaEkleIsle(request, env) {
   }
 
   return jsonResponse({ basarili: true });
+}
+
+// Kırmızı bot, bir sinyalin nihai sonucu (TUTTU/TUTMADI/BİLİNMİYOR) belli
+// olduğunda bu uca "botAnahtar" (iddaaEkleIsle'da kaydedilen aynı değer) ile
+// POST atar; ilgili kaydı HAVUZ_KV içinde bulup "sonuc" alanını günceller.
+// Kayıt yoksa (ör. ilk POST hiç başarılı olmadıysa) sessizce 404 döner —
+// bot tarafında sinyal akışını etkilememesi için fail-open.
+async function iddaaSonucGuncelleIsle(request, env) {
+  const anahtar = request.headers.get("X-Sinyal-Key");
+  if (!env.SINYAL_ANAHTARI || anahtar !== env.SINYAL_ANAHTARI) {
+    return jsonResponse({ hata: "yetkisiz" }, 401);
+  }
+
+  let govde;
+  try {
+    govde = await request.json();
+  } catch (err) {
+    return jsonResponse({ hata: "gecersiz govde" }, 400);
+  }
+
+  const { botAnahtar, sonuc } = govde || {};
+  if (!botAnahtar || !sonuc) {
+    return jsonResponse({ hata: "botAnahtar, sonuc alanlari zorunlu" }, 400);
+  }
+  if (!env.HAVUZ_KV) {
+    return jsonResponse({ basarili: false, hata: "HAVUZ_KV bagli degil" }, 500);
+  }
+
+  const liste = await env.HAVUZ_KV.list({ prefix: "iddaa:", limit: 1000 });
+  for (const k of liste.keys) {
+    const ham = await env.HAVUZ_KV.get(k.name);
+    if (!ham) continue;
+    let kayit;
+    try {
+      kayit = JSON.parse(ham);
+    } catch (err) {
+      continue;
+    }
+    if (kayit.botAnahtar === botAnahtar) {
+      kayit.sonuc = sonuc;
+      await env.HAVUZ_KV.put(k.name, JSON.stringify(kayit));
+      return jsonResponse({ basarili: true });
+    }
+  }
+  return jsonResponse({ basarili: false, hata: "kayit bulunamadi" }, 404);
 }
 
 function jsonResponse(obj, status, extraHeaders) {
@@ -1099,6 +1149,9 @@ export default {
 
     if (pathname === "/api/iddaa-ekle" && request.method === "POST") {
       return iddaaEkleIsle(request, env);
+    }
+    if (pathname === "/api/iddaa-sonuc-guncelle" && request.method === "POST") {
+      return iddaaSonucGuncelleIsle(request, env);
     }
 
     if (pathname === "/api/sinyal" && request.method === "POST") {

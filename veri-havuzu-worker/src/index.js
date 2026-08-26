@@ -387,7 +387,7 @@ ${ORTAK_STIL}
       <div class="tablo-kutu">
         <table>
           <thead>
-            <tr><th>LİG</th><th>MAÇ</th><th>TAHMİN</th><th>DK / SKOR</th><th>ÜST ORANI</th><th>ALT ORANI</th><th>DURUM</th><th>SİNYAL</th></tr>
+            <tr><th>LİG</th><th>SİNYAL</th><th>MAÇ</th><th>TAHMİN</th><th>DK / SKOR</th><th>ÜST ORANI</th><th>ALT ORANI</th><th>DURUM</th><th>SONUÇ</th></tr>
           </thead>
           <tbody id="govdeIddaa"><tr><td colspan="8" class="bos">Yükleniyor…</td></tr></tbody>
         </table>
@@ -730,6 +730,22 @@ ${ORTAK_STIL}
     mac_bulunamadi: "durum-mac-yok", hata: "durum-hata",
   };
 
+  // Kırmızı bot'un kendi sinyal takibinden (TUTTU/TUTMADI) gelen nihai sonuç —
+  // "sonuc" alanı henüz null'sa maç/karar hâlâ bekleniyor demektir.
+  var IDDAA_SONUC_ETIKET = {
+    TUTTU: "Tuttu", TUTMADI: "Tutmadı", BİLİNMİYOR: "Bilinmiyor",
+  };
+  var IDDAA_SONUC_SINIF = {
+    TUTTU: "durum-acik", TUTMADI: "durum-mac-yok", BİLİNMİYOR: "durum-bekliyor",
+  };
+  function iddaaSonucHucresi(k){
+    var sonuc = k.sonuc;
+    if (!sonuc) return "<span class='durum-etiket durum-bekliyor'>Bekliyor</span>";
+    var sinif = IDDAA_SONUC_SINIF[sonuc] || "durum-bekliyor";
+    var etiket = IDDAA_SONUC_ETIKET[sonuc] || sonuc;
+    return "<span class='durum-etiket " + sinif + "'>" + escapeHtml(etiket) + "</span>";
+  }
+
   // Botun Telegram'a attığı sinyal metni ("MS 1.5 ÜST oynayabilirsin" gibi)
   // tam olarak nasılsa tahmin sütunu da öyle görünsün diye buradan sadece
   // sondaki "oynayabilirsin" ekini kırpıyoruz — sayı/yön botun yazdığı
@@ -772,13 +788,14 @@ ${ORTAK_STIL}
     var etiket = IDDAA_DURUM_ETIKET[durum] || durum;
     return "<tr>" +
       "<td class='lig'>" + escapeHtml(k.lig || "") + "</td>" +
+      "<td>" + eklenmeGosterGenel(k.eklenmeZamani) + "</td>" +
       "<td>" + escapeHtml(k.home) + " - " + escapeHtml(k.away) + "</td>" +
       "<td><b>" + iddaaTahminEtiketi(k) + "</b></td>" +
       "<td>" + (k.dk != null ? k.dk + ". dk" : "") + (k.skorEv != null && k.skorDep != null ? " (" + k.skorEv + "-" + k.skorDep + ")" : "") + "</td>" +
       "<td>" + iddaaUstHucresi(k) + "</td>" +
       "<td>" + iddaaAltHucresi(k) + "</td>" +
       "<td><span class='durum-etiket " + sinif + "'>" + escapeHtml(etiket) + "</span></td>" +
-      "<td>" + eklenmeGosterGenel(k.eklenmeZamani) + "</td>" +
+      "<td>" + iddaaSonucHucresi(k) + "</td>" +
       "</tr>";
   }
 
