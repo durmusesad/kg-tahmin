@@ -318,6 +318,14 @@ ${ORTAK_STIL}
           </select>
         </div>
         <div>
+          <label for="tamamlananKgOran">\u0130Y/MS KG EVET</label>
+          <select id="tamamlananKgOran"><option value="">T\u00fcm\u00fc</option>${secenekler}</select>
+        </div>
+        <div>
+          <label for="tamamlananGolOran">6+ GOL</label>
+          <select id="tamamlananGolOran"><option value="">T\u00fcm\u00fc</option>${secenekler}</select>
+        </div>
+        <div>
           <label for="tamamlananSirala">S\u0131rala</label>
           <select id="tamamlananSirala">
             <option value="eklenme_yeni">Son Eklenenler \u00d6nce</option>
@@ -624,6 +632,8 @@ ${ORTAK_STIL}
     var q = $("tamamlananArama").value.trim().toLocaleLowerCase("tr-TR");
     var lig = $("tamamlananLig").value;
     var kg = $("tamamlananKg").value;
+    var kgOran = $("tamamlananKgOran").value;
+    var golOran = $("tamamlananGolOran").value;
     var sira = $("tamamlananSirala").value;
 
     var liste = TUM_TAMAMLANAN.slice();
@@ -631,6 +641,8 @@ ${ORTAK_STIL}
     if (lig) liste = liste.filter(function(k){ return k.lig === lig; });
     if (kg === "var") liste = liste.filter(function(k){ return k.sonuc && k.sonuc.kgVar === true; });
     if (kg === "yok") liste = liste.filter(function(k){ return k.sonuc && k.sonuc.kgVar === false; });
+    if (kgOran !== "") liste = liste.filter(function(k){ return String(k.iymsKgOran) === kgOran; });
+    if (golOran !== "") liste = liste.filter(function(k){ return String(k.altiGolOran) === golOran; });
 
     liste.sort(function(a, b){
       if (sira === "lig_asc") return String(a.lig || "").localeCompare(String(b.lig || ""), "tr");
@@ -687,11 +699,15 @@ ${ORTAK_STIL}
   $("tamamlananArama").addEventListener("input", tamamlananFiltreDegisti);
   $("tamamlananLig").addEventListener("change", tamamlananFiltreDegisti);
   $("tamamlananKg").addEventListener("change", tamamlananFiltreDegisti);
+  $("tamamlananKgOran").addEventListener("change", tamamlananFiltreDegisti);
+  $("tamamlananGolOran").addEventListener("change", tamamlananFiltreDegisti);
   $("tamamlananSirala").addEventListener("change", tamamlananFiltreDegisti);
   $("tamamlananTemizleBtn").addEventListener("click", function(){
     $("tamamlananArama").value = "";
     $("tamamlananLig").value = "";
     $("tamamlananKg").value = "";
+    $("tamamlananKgOran").value = "";
+    $("tamamlananGolOran").value = "";
     $("tamamlananSirala").value = "eklenme_yeni";
     tamamlananFiltreDegisti();
   });
