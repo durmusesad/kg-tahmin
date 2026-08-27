@@ -16,10 +16,8 @@
     --parchment:#ffffff;
     --parchment-2:#f4f0e6;
     --parchment-3:#ece5d4;
-    /* Ana aksan rengi: #001AFF mavi */
-    --seal:#001AFF;
-    --seal-dark:#0016d6;
-    /* Canlı maç / kırmızı sinyal — semantik kırmızı, aksandan bağımsız */
+    --seal:#e63950;
+    --seal-dark:#c22740;
     --live:#e63950;
     --live-dark:#c22740;
     --tile:#12b886;
@@ -41,8 +39,8 @@
     --parchment:#151109;
     --parchment-2:#1e1810;
     --parchment-3:#272016;
-    --seal:#6e86ff;
-    --seal-dark:#4c63e0;
+    --seal:#c1596a;
+    --seal-dark:#9c4353;
     --live:#c1596a;
     --live-dark:#9c4353;
     --tile:#3fa285;
@@ -379,17 +377,16 @@
     position:fixed; left:50%; z-index:60;
     bottom:calc(12px + env(safe-area-inset-bottom));
     transform:translateX(-50%);
-    display:flex; align-items:center; gap:8px;
-    padding:7px;
+    display:flex; align-items:center; justify-content:space-between; gap:4px;
+    width:calc(100vw - 24px); max-width:460px;
+    padding:6px 8px;
     border-radius:999px;
     background:var(--card-bg);
     border:1px solid var(--border);
     box-shadow:0 10px 30px rgba(0,0,0,.26);
-    max-width:calc(100vw - 20px);
   }
   .dock-btn{
-    flex:none;
-    width:54px; height:46px;
+    flex:1 1 0; min-width:0; height:46px;
     display:flex; align-items:center; justify-content:center;
     border:none; border-radius:999px;
     background:transparent; color:var(--ink);
@@ -397,29 +394,29 @@
     transition:background-color .18s ease;
   }
   .dock-btn:active{transform:translateY(1px);}
-  .dock-btn svg{width:21px; height:21px;}
-  .dock-bulten.active{
+  .dock-btn svg{width:20px; height:20px;}
+  .dock-btn.active{
     background:color-mix(in srgb, var(--brass) 24%, var(--parchment-2));
   }
-  .dock-arsiv{opacity:.3; cursor:not-allowed;}
+  .dock-btn:disabled{opacity:.3; cursor:not-allowed; transform:none;}
   .dock-kupon{
-    flex:none;
-    min-width:118px;
+    flex:0 0 auto;
+    min-width:96px;
     display:flex; flex-direction:column; align-items:center; justify-content:center;
-    padding:4px 24px;
+    padding:4px 16px;
     border:1px solid var(--border);
     border-radius:999px;
     background:var(--parchment-2);
     color:var(--ink);
     cursor:pointer;
-    line-height:1.14;
+    line-height:1.12;
     transition:border-color .18s ease;
   }
   .dock-kupon:active{transform:translateY(1px);}
   .dock-kupon.active{border-color:var(--kupon);}
-  .dock-kupon .dk-top{font-size:10px; font-weight:700; color:var(--ink-soft);}
-  .dock-kupon .dk-mid{font-size:17px; font-weight:800; font-variant-numeric:tabular-nums;}
-  .dock-kupon .dk-bot{font-size:10px; font-weight:700; color:var(--ink-soft);}
+  .dock-kupon .dk-top{font-size:9.5px; font-weight:700; color:var(--ink-soft);}
+  .dock-kupon .dk-mid{font-size:16px; font-weight:800; font-variant-numeric:tabular-nums;}
+  .dock-kupon .dk-bot{font-size:9.5px; font-weight:700; color:var(--ink-soft);}
   .dock-kupon.empty .dk-mid{color:var(--ink-faint);}
 
   .kupon-screen{
@@ -557,13 +554,12 @@
 <main>
   <div id="bultenScreen">
     <div class="filter-bar">
-      <div class="view-row">
+      <div class="view-row" id="viewRow">
         <label for="viewSelect">Görünüm</label>
         <select id="viewSelect">
           <option value="tum">Tüm Bülten</option>
           <option value="kesin">Kesin Eşleşme</option>
           <option value="olasi">Olası Eşleşme</option>
-          <option value="canli">Canlı</option>
         </select>
       </div>
       <div class="search-row">
@@ -610,6 +606,9 @@
 </main>
 
 <nav class="dockbar" id="dockbar" aria-label="Alt menü">
+  <button type="button" class="dock-btn dock-sportoto" id="dockSportoto" aria-label="Spor Toto kolon (yakında)" disabled>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.6"/><rect x="14" y="3" width="7" height="7" rx="1.6"/><rect x="3" y="14" width="7" height="7" rx="1.6"/><rect x="14" y="14" width="7" height="7" rx="1.6"/></svg>
+  </button>
   <button type="button" class="dock-btn dock-bulten active" id="dockBulten" aria-label="Bülten">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3.5" y1="6" x2="3.51" y2="6"/><line x1="3.5" y1="12" x2="3.51" y2="12"/><line x1="3.5" y1="18" x2="3.51" y2="18"/></svg>
   </button>
@@ -617,6 +616,9 @@
     <span class="dk-top"><b id="kuponPillCount">0</b> Maç</span>
     <span class="dk-mid" id="kuponPillOran">–</span>
     <span class="dk-bot">Oran</span>
+  </button>
+  <button type="button" class="dock-btn dock-canli" id="dockCanli" aria-label="Canlı maçlar">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5.2l3.4 2"/></svg>
   </button>
   <button type="button" class="dock-btn dock-arsiv" id="dockArsiv" aria-label="Arşiv (yakında)" disabled>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="17" rx="2"/><line x1="16" y1="2.5" x2="16" y2="6.5"/><line x1="8" y1="2.5" x2="8" y2="6.5"/><line x1="3" y1="10" x2="21" y2="10"/><path d="m8.5 15.5 2.2 2.2 4.3-4.4"/></svg>
@@ -656,7 +658,8 @@
   /* ============== STATE ============== */
   let allMatches = [];
   let liveMatches = [];
-  let currentView = "tum"; // "tum" | "kesin" | "olasi" | "canli"
+  let currentView = "tum"; // "tum" | "kesin" | "olasi" (bülten) | "canli" (dock)
+  let lastBultenView = "tum"; // Canlı'dan Bülten'e dönünce hangi bülten görünümüne dönülecek
   let currentLeague = "";
   let currentSort = "time_asc";
   let searchQuery = "";
@@ -767,7 +770,9 @@
 
   function syncDock(){
     const onKupon = !$("kuponScreen").hidden;
-    $("dockBulten").classList.toggle("active", !onKupon);
+    const onCanli = !onKupon && currentView === "canli";
+    $("dockBulten").classList.toggle("active", !onKupon && !onCanli);
+    $("dockCanli").classList.toggle("active", onCanli);
     $("kuponPill").classList.toggle("active", onKupon);
   }
   function showKuponScreen(){
@@ -795,7 +800,15 @@
   }
 
   $("kuponPill").addEventListener("click", showKuponScreen);
-  $("dockBulten").addEventListener("click", hideKuponScreen);
+  $("dockBulten").addEventListener("click", () => {
+    hideKuponScreen();
+    if (currentView === "canli") setView(lastBultenView);
+    else syncDock();
+  });
+  $("dockCanli").addEventListener("click", () => {
+    hideKuponScreen();
+    setView("canli");
+  });
   $("kuponBackBtn").addEventListener("click", hideKuponScreen);
   $("kuponClearBtn").addEventListener("click", () => {
     kupon = [];
@@ -1016,7 +1029,6 @@
       tum: allMatches.length,
       kesin: allMatches.filter(m => m.guven === "kesin").length,
       olasi: allMatches.filter(m => m.guven === "olasi").length,
-      canli: liveMatches.length,
     };
     Array.from(viewSelectEl.options).forEach(o => {
       const base = o.dataset.label || o.textContent.replace(/\s*\(\d+\)\s*$/, "");
@@ -1053,15 +1065,21 @@
     renderList();
   });
 
-  viewSelectEl.addEventListener("change", () => {
-    currentView = viewSelectEl.value;
-    currentSort = (currentView === "canli") ? "live_recent"
-                : (currentView === "tum") ? "time_asc"
+  function setView(v){
+    currentView = v;
+    if (v !== "canli"){ lastBultenView = v; viewSelectEl.value = v; }
+    // Görünüm (Tüm/Kesin/Olası) seçici yalnızca bülten içindir; Canlı'da gizlenir.
+    $("viewRow").hidden = (v === "canli");
+    currentSort = (v === "canli") ? "live_recent"
+                : (v === "tum") ? "time_asc"
                 : "rate_desc";
     sortSelectEl.value = currentSort;
     rebuildLeagueOptions();
     renderList();
-  });
+    syncDock();
+  }
+
+  viewSelectEl.addEventListener("change", () => setView(viewSelectEl.value));
 
   /* ============== LOAD ============== */
   function render(data){
