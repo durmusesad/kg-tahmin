@@ -133,20 +133,6 @@
     padding:10px;
     margin-bottom:16px;
   }
-  .view-row{margin-bottom:8px;}
-  .view-row label{
-    display:block; font-size:9.5px; font-weight:700; text-transform:uppercase;
-    letter-spacing:.03em; color:var(--ink-faint); margin-bottom:3px;
-  }
-  .view-row select{
-    width:100%;
-    border:1px solid var(--border);
-    background:var(--parchment-2); color:var(--ink);
-    border-radius:9px;
-    padding:9px 10px;
-    font-size:13px; font-weight:700;
-  }
-
   .search-row{margin-bottom:8px;}
   .search-row input{
     width:100%;
@@ -164,6 +150,8 @@
     grid-template-columns:1fr 1fr;
     gap:8px;
   }
+  .filter-controls.solo{grid-template-columns:1fr;}
+  #sortWrap[hidden]{display:none;}
   .filter-controls label{
     display:block; font-size:9.5px; font-weight:700; text-transform:uppercase;
     letter-spacing:.03em; color:var(--ink-faint); margin-bottom:3px;
@@ -192,6 +180,15 @@
   }
 
   .match-list{display:flex; flex-direction:column; gap:10px;}
+  .list-sep{
+    display:flex; align-items:center; gap:10px;
+    margin:4px 2px 0;
+    font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.05em;
+    color:var(--ink-faint);
+  }
+  .list-sep::before, .list-sep::after{
+    content:""; flex:1; height:1px; background:var(--border);
+  }
 
   .match-card{
     background:var(--card-bg);
@@ -554,23 +551,15 @@
 <main>
   <div id="bultenScreen">
     <div class="filter-bar">
-      <div class="view-row" id="viewRow">
-        <label for="viewSelect">Görünüm</label>
-        <select id="viewSelect">
-          <option value="tum">Tüm Bülten</option>
-          <option value="kesin">Kesin Eşleşme</option>
-          <option value="olasi">Olası Eşleşme</option>
-        </select>
-      </div>
       <div class="search-row">
         <input type="search" id="searchInput" placeholder="Takım veya lig ara…" autocomplete="off">
       </div>
-      <div class="filter-controls">
+      <div class="filter-controls" id="filterControls">
         <div>
           <label for="ligSelect">Lig</label>
           <select id="ligSelect"><option value="">Tüm Ligler</option></select>
         </div>
-        <div>
+        <div id="sortWrap">
           <label for="sortSelect">Sırala</label>
           <select id="sortSelect"></select>
         </div>
@@ -658,10 +647,9 @@
   /* ============== STATE ============== */
   let allMatches = [];
   let liveMatches = [];
-  let currentView = "tum"; // "tum" | "kesin" | "olasi" (bülten) | "canli" (dock)
-  let lastBultenView = "tum"; // Canlı'dan Bülten'e dönünce hangi bülten görünümüne dönülecek
+  let currentView = "tum"; // "tum" (bülten: tüm maçlar) | "canli" (dock)
   let currentLeague = "";
-  let currentSort = "time_asc";
+  let currentSort = "rate_desc"; // varsayılan: arşiv (tutma oranı) yüksek → düşük
   let searchQuery = "";
   let expandedIds = new Set();
 
@@ -687,9 +675,7 @@
   sortSelectEl.value = currentSort;
 
   const VIEW_NOTES = {
-    kesin: "Verilerini takip ettiğimiz 13 büyük ligden biri ve geçmişte en az 3 kez denenip hepsinde (%100) karşılıklı gol çıkmış oran çiftleri.",
-    olasi: "Ya örnek sayısı 3'ten az, ya arşivde %100'ün altında tutmuş, ya da takip ettiğimiz 13 lig dışında bir maç — bu yüzden yine de tutabilir ama garantisi yok, kararı sana bırakıyoruz.",
-    tum:   "Bültendeki tüm maçlar (geçmiş verisi olsun olmasın).",
+    tum:   "Kesin maçlar en üstte; kalanlar arşiv tutma oranına göre yüksekten düşüğe sıralı.",
     canli: "",
   };
 
@@ -802,7 +788,7 @@
   $("kuponPill").addEventListener("click", showKuponScreen);
   $("dockBulten").addEventListener("click", () => {
     hideKuponScreen();
-    if (currentView === "canli") setView(lastBultenView);
+    if (currentView !== "tum") setView("tum");
     else syncDock();
   });
   $("dockCanli").addEventListener("click", () => {
@@ -843,6 +829,12 @@
     return dd + "." + MM + " " + hh + ":" + mm;
   }
   function fmtPct(rate){ return Math.round(rate * 100) + "%"; }
+  // Canlı maç dakikasını sayıya çevirir: "45+2'" -> 47, "İY"/"DA" gibi metinler sona.
+  function dakikaNum(m){
+    const parts = String(m.dakika || "").match(/\d+/g);
+    if (!parts) return 999;
+    return parts.reduce((acc, n) => acc + parseInt(n, 10), 0);
+  }
   function escapeHtml(s){
     return String(s).replace(/[&<>"']/g, c => ({
       "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
@@ -1009,34 +1001,42 @@
     let matches = tabMatches(currentView);
     if (currentLeague) matches = matches.filter(m => m.lig === currentLeague);
     if (searchQuery) matches = matches.filter(m => matchesSearch(m, searchQuery));
-    // Kırmızı bot sinyali gelen maçlar, seçili sıralama ne olursa olsun
-    // (Kesin/Olası ayrımından bağımsız) her zaman en üstte gösterilir.
-    matches = matches.slice().sort((a, b) => {
-      const aSinyal = a.kirmiziSinyal ? 1 : 0;
-      const bSinyal = b.kirmiziSinyal ? 1 : 0;
-      if (aSinyal !== bSinyal) return bSinyal - aSinyal;
-      return SORTS[currentSort].cmp(a, b);
-    });
 
-    $("list").innerHTML = matches.map(matchCard).join("");
+    let html;
+    if (currentView === "canli"){
+      // Canlı iki bölüm:
+      //   ÜST → kırmızı sinyalli maçlar, sonra "Kesin" etiketli maçlar
+      //   ALT → kalan tüm canlı maçlar, maç dakikasına göre (küçükten büyüğe)
+      const oneCikan = m => !!m.kirmiziSinyal || m.guven === "kesin";
+      const ust = matches.filter(oneCikan).sort((a, b) => {
+        const s = (b.kirmiziSinyal ? 1 : 0) - (a.kirmiziSinyal ? 1 : 0);
+        if (s) return s;
+        const k = (b.guven === "kesin" ? 1 : 0) - (a.guven === "kesin" ? 1 : 0);
+        if (k) return k;
+        return dakikaNum(a) - dakikaNum(b);
+      });
+      const alt = matches.filter(m => !oneCikan(m)).sort((a, b) => dakikaNum(a) - dakikaNum(b));
+      html = ust.map(matchCard).join("");
+      if (ust.length && alt.length) html += '<div class="list-sep">Diğer canlı maçlar</div>';
+      html += alt.map(matchCard).join("");
+    } else {
+      // Bülten tek liste: "Kesin" etiketliler en üstte, kalanlar seçili
+      // sıralamaya göre (varsayılan: arşiv tutma oranı yüksek → düşük).
+      matches = matches.slice().sort((a, b) => {
+        const aKesin = a.guven === "kesin" ? 1 : 0;
+        const bKesin = b.guven === "kesin" ? 1 : 0;
+        if (aKesin !== bKesin) return bKesin - aKesin;
+        return SORTS[currentSort].cmp(a, b);
+      });
+      html = matches.map(matchCard).join("");
+    }
+
+    $("list").innerHTML = html;
     $("emptyNote").style.display = matches.length ? "none" : "block";
     $("emptyNote").textContent = searchQuery ? "Aramanla eşleşen maç yok." : "Kriterlere uyan maç yok.";
     const note = VIEW_NOTES[currentView] || "";
     $("tabNote").textContent = note;
     $("tabNote").style.display = note ? "" : "none";
-  }
-
-  function updateTabCounts(){
-    const c = {
-      tum: allMatches.length,
-      kesin: allMatches.filter(m => m.guven === "kesin").length,
-      olasi: allMatches.filter(m => m.guven === "olasi").length,
-    };
-    Array.from(viewSelectEl.options).forEach(o => {
-      const base = o.dataset.label || o.textContent.replace(/\s*\(\d+\)\s*$/, "");
-      o.dataset.label = base;
-      o.textContent = base + " (" + (c[o.value] ?? 0) + ")";
-    });
   }
 
   $("list").addEventListener("click", (ev) => {
@@ -1058,8 +1058,6 @@
   });
 
   const ligSelectEl = $("ligSelect");
-  const viewSelectEl = $("viewSelect");
-  viewSelectEl.value = currentView;
   ligSelectEl.addEventListener("change", () => { currentLeague = ligSelectEl.value; renderList(); });
   sortSelectEl.addEventListener("change", () => { currentSort = sortSelectEl.value; renderList(); });
   $("searchInput").addEventListener("input", (ev) => {
@@ -1068,20 +1066,20 @@
   });
 
   function setView(v){
-    currentView = v;
-    if (v !== "canli"){ lastBultenView = v; viewSelectEl.value = v; }
-    // Görünüm (Tüm/Kesin/Olası) seçici yalnızca bülten içindir; Canlı'da gizlenir.
-    $("viewRow").hidden = (v === "canli");
-    currentSort = (v === "canli") ? "live_recent"
-                : (v === "tum") ? "time_asc"
-                : "rate_desc";
+    currentView = v; // "tum" (bülten) | "canli"
+    // Görünüm değişince sıralama varsayılana döner: arşiv tutma oranı yüksek → düşük.
+    // (Sinyal/Kesin önceliği renderList içinde her sıralamada zaten uygulanır.)
+    currentSort = "rate_desc";
     sortSelectEl.value = currentSort;
+    // Canlı'da sıralama sabit (üst: sinyal→kesin, alt: dakika) olduğundan
+    // "Sırala" seçicisi gizlenir; Lig seçicisi tek sütuna yayılır.
+    const onCanli = (v === "canli");
+    $("sortWrap").hidden = onCanli;
+    $("filterControls").classList.toggle("solo", onCanli);
     rebuildLeagueOptions();
     renderList();
     syncDock();
   }
-
-  viewSelectEl.addEventListener("change", () => setView(viewSelectEl.value));
 
   /* ============== LOAD ============== */
   function render(data){
@@ -1095,7 +1093,6 @@
       $("statUpdated").textContent = String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0");
     }
 
-    updateTabCounts();
     rebuildLeagueOptions();
     renderList();
     renderKupon();
