@@ -690,7 +690,7 @@
     kesin: "Verilerini takip ettiğimiz 13 büyük ligden biri ve geçmişte en az 3 kez denenip hepsinde (%100) karşılıklı gol çıkmış oran çiftleri.",
     olasi: "Ya örnek sayısı 3'ten az, ya arşivde %100'ün altında tutmuş, ya da takip ettiğimiz 13 lig dışında bir maç — bu yüzden yine de tutabilir ama garantisi yok, kararı sana bırakıyoruz.",
     tum:   "Bültendeki tüm maçlar (geçmiş verisi olsun olmasın).",
-    canli: "Şu anda oynanan maçlar; dakika ve skor Nesine'nin canlı veri akışından alınır, en son başlayan üstte. Karşılıklı Gol (MS KG) oranı canlı ve güncel, kupona eklenebilir. 6+ Gol ve İY/MS KG oranları ise Nesine'nin canlıda hiç sunmadığı marketler olduğundan maçın başlamasından hemen önceki son ön-maç değeridir — sadece Kesin/Olası etiketinin dayanağıdır, canlı güncellenmez.",
+    canli: "",
   };
 
   /* ============== KUPON (kazanç hesaplayıcı) ============== */
@@ -1021,7 +1021,9 @@
     $("list").innerHTML = matches.map(matchCard).join("");
     $("emptyNote").style.display = matches.length ? "none" : "block";
     $("emptyNote").textContent = searchQuery ? "Aramanla eşleşen maç yok." : "Kriterlere uyan maç yok.";
-    $("tabNote").textContent = VIEW_NOTES[currentView];
+    const note = VIEW_NOTES[currentView] || "";
+    $("tabNote").textContent = note;
+    $("tabNote").style.display = note ? "" : "none";
   }
 
   function updateTabCounts(){
