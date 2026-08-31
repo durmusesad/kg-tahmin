@@ -233,7 +233,10 @@ ${ORTAK_STIL}
   <div class="sekmeler">
     <button type="button" class="sekme-btn aktif" data-sekme="ana">Ana Veri</button>
     <button type="button" class="sekme-btn" data-sekme="gunluk">Analiz</button>
-    <button type="button" class="sekme-btn" data-sekme="iddaa">İddaa Oranları</button>
+    <!-- "İddaa Oranları" sekmesi 2026-08-31'de iptal edildi — bu iş artık
+         kg-tahmin-bulten sitesindeki "Arşiv" sekmesinde canlı yapılıyor.
+         Panel HTML'i ve JS'i aşağıda bırakıldı (erişilemez), gerekirse
+         yeniden açmak için bu butonu geri koymak yeterli. -->
   </div>
   <div class="wrap">
     <div class="panel" id="panelAna">
