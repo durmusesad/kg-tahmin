@@ -1120,6 +1120,135 @@ async function iddaaSonucGuncelleIsle(request, env) {
   return jsonResponse({ basarili: false, hata: "kayit bulunamadi" }, 404);
 }
 
+// ============================================================
+// ARŞİV (alt bardaki 5. sekme — 2026-08-31)
+// ============================================================
+// Kırmızı bot (DO sunucusu) 90sn'de bir, aktif sinyali olan CANLI maçların
+// güncel dakika/skorunu ve iddaa.com'dan çektiği TAZE oranı `aktif` dizisinde,
+// o turda biten sinyalleri `biten` dizisinde POST eder.
+//   - `arsiv:guncel`  -> {guncellemeZamani, aktif:[...]}  (tek anahtar, dedupe'lı)
+//   - `arsiv:bitenler` -> son 24 saatin biten sinyalleri (botAnahtar ile upsert,
+//                         24 saatten eski / 60'tan fazla kayıt kırpılır)
+// Bot sadece iddaa.com'da bulunan (durum="acik") maçları gönderir; Worker yine
+// de emniyet için filtreler. `/api/arsiv` iki anahtarı okuyup 30sn cache'ler.
+const ARSIV_GUNCEL_ANAHTARI = "arsiv:guncel";
+const ARSIV_BITENLER_ANAHTARI = "arsiv:bitenler";
+const ARSIV_BITEN_MAX_YAS_MS = 24 * 3600 * 1000;
+const ARSIV_BITEN_MAX_KAYIT = 60;
+
+function arsivKaydiTemizle(k) {
+  if (!k || typeof k !== "object") return null;
+  if (!k.home || !k.away) return null;
+  return {
+    botAnahtar: k.botAnahtar ?? null,
+    home: String(k.home), away: String(k.away), lig: k.lig ?? null,
+    taktik: k.taktik ?? null, tahmin: k.tahmin ?? null,
+    dk: k.dk ?? null, skorEv: k.skorEv ?? null, skorDep: k.skorDep ?? null,
+    market: k.market ?? null, yon: k.yon ?? null,
+    oran: k.oran ?? null, digerOran: k.digerOran ?? null,
+    durum: k.durum ?? "acik",
+    sonuc: k.sonuc ?? null,
+    sinyalZamani: k.sinyalZamani ?? null,
+  };
+}
+
+async function arsivGuncelleIsle(request, env) {
+  const anahtar = request.headers.get("X-Sinyal-Key");
+  if (!env.SINYAL_ANAHTARI || anahtar !== env.SINYAL_ANAHTARI) {
+    return jsonResponse({ hata: "yetkisiz" }, 401);
+  }
+  if (!env.HAVUZ_KV) {
+    return jsonResponse({ basarili: false, hata: "HAVUZ_KV bagli degil" }, 500);
+  }
+
+  let govde;
+  try {
+    govde = await request.json();
+  } catch (err) {
+    return jsonResponse({ hata: "gecersiz govde" }, 400);
+  }
+
+  const aktifHam = Array.isArray(govde && govde.aktif) ? govde.aktif : [];
+  const bitenHam = Array.isArray(govde && govde.biten) ? govde.biten : [];
+
+  const aktif = aktifHam.map(arsivKaydiTemizle).filter((k) => k && k.durum === "acik");
+  const simdiIso = toIstanbulIso(new Date());
+  const yeniGuncel = { guncellemeZamani: simdiIso, aktif };
+
+  // --- arsiv:guncel — sadece içerik değiştiyse yaz (KV yazma kotası) ---
+  let oncekiGuncel = null;
+  try {
+    oncekiGuncel = await env.HAVUZ_KV.get(ARSIV_GUNCEL_ANAHTARI);
+  } catch (err) { /* yok say */ }
+  const oncekiAktifStr = oncekiGuncel ? JSON.stringify((JSON.parse(oncekiGuncel) || {}).aktif ?? []) : "[]";
+  let guncelYazildi = false;
+  if (JSON.stringify(aktif) !== oncekiAktifStr) {
+    try {
+      await env.HAVUZ_KV.put(ARSIV_GUNCEL_ANAHTARI, JSON.stringify(yeniGuncel));
+      guncelYazildi = true;
+    } catch (err) {
+      return jsonResponse({ basarili: false, hata: "arsiv:guncel yazilamadi" }, 500);
+    }
+  }
+
+  // --- arsiv:bitenler — biten sinyalleri upsert et, 24 saat / 60 kayıt kırp ---
+  let bitenYazildi = false;
+  const yeniBitenler = bitenHam.map(arsivKaydiTemizle).filter((k) => k && k.durum === "acik" && k.sonuc);
+  if (yeniBitenler.length) {
+    let mevcut = [];
+    try {
+      const ham = await env.HAVUZ_KV.get(ARSIV_BITENLER_ANAHTARI);
+      if (ham) mevcut = JSON.parse(ham) || [];
+    } catch (err) { mevcut = []; }
+    const harita = new Map();
+    for (const k of mevcut) if (k && k.botAnahtar) harita.set(k.botAnahtar, k);
+    for (const k of yeniBitenler) {
+      harita.set(k.botAnahtar || (k.home + "|" + k.away + "|" + k.taktik), { ...k, arsivZamani: simdiIso });
+    }
+    const esik = Date.now() - ARSIV_BITEN_MAX_YAS_MS;
+    let liste = [...harita.values()]
+      .filter((k) => {
+        const t = Date.parse(k.arsivZamani || k.sinyalZamani || "");
+        return !Number.isFinite(t) || t >= esik;
+      })
+      .sort((a, b) => String(b.arsivZamani || "").localeCompare(String(a.arsivZamani || "")))
+      .slice(0, ARSIV_BITEN_MAX_KAYIT);
+    try {
+      await env.HAVUZ_KV.put(ARSIV_BITENLER_ANAHTARI, JSON.stringify(liste));
+      bitenYazildi = true;
+    } catch (err) { /* biten yazılamadı — kritik değil, gelecek turda tekrar denenir */ }
+  }
+
+  return jsonResponse({ basarili: true, guncelYazildi, bitenYazildi, aktifSayisi: aktif.length });
+}
+
+async function arsivGetir(env) {
+  let aktif = [];
+  let guncellemeZamani = null;
+  let biten = [];
+  if (env.HAVUZ_KV) {
+    try {
+      const ham = await env.HAVUZ_KV.get(ARSIV_GUNCEL_ANAHTARI);
+      if (ham) {
+        const g = JSON.parse(ham) || {};
+        aktif = Array.isArray(g.aktif) ? g.aktif : [];
+        guncellemeZamani = g.guncellemeZamani || null;
+      }
+    } catch (err) { /* boş bırak */ }
+    try {
+      const ham = await env.HAVUZ_KV.get(ARSIV_BITENLER_ANAHTARI);
+      if (ham) {
+        const esik = Date.now() - ARSIV_BITEN_MAX_YAS_MS;
+        biten = (JSON.parse(ham) || []).filter((k) => {
+          const t = Date.parse(k.arsivZamani || k.sinyalZamani || "");
+          return !Number.isFinite(t) || t >= esik;
+        });
+      }
+    } catch (err) { /* boş bırak */ }
+  }
+  return { guncellemeZamani, aktifSayisi: aktif.length, bitenSayisi: biten.length, aktif, biten };
+}
+
 function jsonResponse(obj, status, extraHeaders) {
   return new Response(JSON.stringify(obj), {
     status: status || 200,
@@ -1158,6 +1287,10 @@ export default {
       return sinyalIsle(request, env);
     }
 
+    if (pathname === "/api/arsiv-guncelle" && request.method === "POST") {
+      return arsivGuncelleIsle(request, env);
+    }
+
     if (pathname === "/api/bulten-guncelle" && request.method === "POST") {
       return bultenGuncelleIsle(request, env);
     }
@@ -1170,6 +1303,27 @@ export default {
       }
       const maclar = guncel.maclar.map((m) => ({ ...m, ...guvenHesapla(m.msKg ?? null, m.altUst6 ?? null, m.iymsKg ?? null, m.lig ?? null) }));
       return jsonResponse({ guncellemeZamani: guncel.guncellemeZamani, macSayisi: maclar.length, maclar });
+    }
+
+    if (pathname === "/api/arsiv") {
+      const arsivCacheSaniye = 30;
+      const arsivCache = caches.default;
+      const arsivCacheKey = new Request(new URL(request.url).origin + "/kg-tahmin-arsiv", request);
+      const arsivCached = await arsivCache.match(arsivCacheKey);
+      if (arsivCached) {
+        const body = await arsivCached.text();
+        return jsonResponse(JSON.parse(body), 200, { "X-Cache": "HIT" });
+      }
+      const arsivCikti = await arsivGetir(env);
+      const arsivResponse = new Response(JSON.stringify(arsivCikti), {
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Cache-Control": "public, max-age=" + arsivCacheSaniye,
+          ...CORS_HEADERS,
+        },
+      });
+      ctx.waitUntil(arsivCache.put(arsivCacheKey, arsivResponse.clone()));
+      return arsivResponse;
     }
 
     if (pathname !== "/api/canli") {
