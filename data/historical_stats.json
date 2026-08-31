@@ -1,24 +1,24 @@
 {
- "aciklama": "İY/MS KG EVET ve 6+ GOL oranlarının küsüratsız (tam sayı) çiftleri için geçmiş maçlarda MS KG (karşılıklı gol) gerçekleşme istatistiği. Kaynak: kullanıcının UFUK CİVAŞ 2026 MODEL İDDAA adlı Excel tablosu.",
- "olusturulmaTarihi": "2026-08-16",
- "kaynakSatirSayisi": 483,
- "ciftSayisi": 179,
+ "aciklama": "İY/MS KG EVET ve 6+ GOL oranlarının küsüratsız (tam sayı) çiftleri için geçmiş maçlarda MS KG (karşılıklı gol) gerçekleşme istatistiği. Kaynak: veri havuzu 'ana veri' bölümü (başlangıç: kullanıcının UFUK CİVAŞ 2026 MODEL İDDAA Excel tablosu, 483 satır; üzerine bot'un canlı kaydettiği tamamlanan maçlar eklendi).",
+ "olusturulmaTarihi": "2026-08-31",
+ "kaynakSatirSayisi": 566,
+ "ciftSayisi": 193,
  "ciftler": {
   "17,15": {
    "tutma": 3,
-   "toplam": 4
+   "toplam": 5
   },
   "10,8": {
-   "tutma": 9,
-   "toplam": 18
+   "tutma": 10,
+   "toplam": 21
   },
   "16,11": {
    "tutma": 0,
    "toplam": 1
   },
   "15,14": {
-   "tutma": 6,
-   "toplam": 11
+   "tutma": 9,
+   "toplam": 14
   },
   "20,18": {
    "tutma": 2,
@@ -46,7 +46,7 @@
   },
   "16,10": {
    "tutma": 0,
-   "toplam": 2
+   "toplam": 3
   },
   "26,29": {
    "tutma": 1,
@@ -66,19 +66,19 @@
   },
   "14,10": {
    "tutma": 2,
-   "toplam": 9
+   "toplam": 10
   },
   "15,13": {
-   "tutma": 3,
-   "toplam": 6
+   "tutma": 4,
+   "toplam": 7
   },
   "13,6": {
-   "tutma": 3,
-   "toplam": 3
+   "tutma": 4,
+   "toplam": 4
   },
   "23,22": {
-   "tutma": 1,
-   "toplam": 3
+   "tutma": 2,
+   "toplam": 4
   },
   "15,7": {
    "tutma": 1,
@@ -98,15 +98,15 @@
   },
   "9,8": {
    "tutma": 3,
-   "toplam": 4
+   "toplam": 5
   },
   "12,8": {
    "tutma": 2,
    "toplam": 7
   },
   "13,12": {
-   "tutma": 9,
-   "toplam": 9
+   "tutma": 10,
+   "toplam": 10
   },
   "14,8": {
    "tutma": 1,
@@ -121,12 +121,12 @@
    "toplam": 1
   },
   "11,8": {
-   "tutma": 6,
-   "toplam": 7
+   "tutma": 9,
+   "toplam": 10
   },
   "19,17": {
-   "tutma": 2,
-   "toplam": 4
+   "tutma": 3,
+   "toplam": 5
   },
   "23,17": {
    "tutma": 0,
@@ -149,8 +149,8 @@
    "toplam": 2
   },
   "8,7": {
-   "tutma": 2,
-   "toplam": 2
+   "tutma": 3,
+   "toplam": 3
   },
   "10,7": {
    "tutma": 3,
@@ -165,16 +165,16 @@
    "toplam": 8
   },
   "11,7": {
-   "tutma": 3,
-   "toplam": 5
+   "tutma": 4,
+   "toplam": 6
   },
   "17,17": {
-   "tutma": 1,
-   "toplam": 5
+   "tutma": 2,
+   "toplam": 7
   },
   "9,4": {
-   "tutma": 2,
-   "toplam": 2
+   "tutma": 4,
+   "toplam": 4
   },
   "14,9": {
    "tutma": 5,
@@ -189,20 +189,20 @@
    "toplam": 12
   },
   "13,11": {
-   "tutma": 3,
-   "toplam": 7
+   "tutma": 4,
+   "toplam": 9
   },
   "13,10": {
-   "tutma": 2,
-   "toplam": 3
+   "tutma": 3,
+   "toplam": 4
   },
   "17,16": {
    "tutma": 4,
    "toplam": 7
   },
   "14,11": {
-   "tutma": 1,
-   "toplam": 2
+   "tutma": 2,
+   "toplam": 3
   },
   "13,7": {
    "tutma": 1,
@@ -210,11 +210,11 @@
   },
   "14,12": {
    "tutma": 1,
-   "toplam": 4
+   "toplam": 5
   },
   "12,11": {
    "tutma": 2,
-   "toplam": 4
+   "toplam": 5
   },
   "12,9": {
    "tutma": 4,
@@ -222,7 +222,7 @@
   },
   "23,21": {
    "tutma": 1,
-   "toplam": 2
+   "toplam": 3
   },
   "13,8": {
    "tutma": 3,
@@ -237,8 +237,8 @@
    "toplam": 2
   },
   "15,15": {
-   "tutma": 2,
-   "toplam": 4
+   "tutma": 3,
+   "toplam": 5
   },
   "34,28": {
    "tutma": 1,
@@ -265,16 +265,16 @@
    "toplam": 3
   },
   "12,10": {
-   "tutma": 5,
-   "toplam": 7
+   "tutma": 6,
+   "toplam": 10
   },
   "20,21": {
    "tutma": 4,
    "toplam": 5
   },
   "24,26": {
-   "tutma": 0,
-   "toplam": 1
+   "tutma": 2,
+   "toplam": 4
   },
   "10,3": {
    "tutma": 0,
@@ -293,8 +293,8 @@
    "toplam": 4
   },
   "7,5": {
-   "tutma": 3,
-   "toplam": 5
+   "tutma": 4,
+   "toplam": 6
   },
   "26,30": {
    "tutma": 0,
@@ -322,7 +322,7 @@
   },
   "18,13": {
    "tutma": 1,
-   "toplam": 1
+   "toplam": 2
   },
   "24,8": {
    "tutma": 0,
@@ -330,7 +330,7 @@
   },
   "23,26": {
    "tutma": 1,
-   "toplam": 1
+   "toplam": 2
   },
   "25,18": {
    "tutma": 1,
@@ -338,7 +338,7 @@
   },
   "18,14": {
    "tutma": 0,
-   "toplam": 1
+   "toplam": 2
   },
   "29,30": {
    "tutma": 2,
@@ -353,8 +353,8 @@
    "toplam": 2
   },
   "12,7": {
-   "tutma": 2,
-   "toplam": 4
+   "tutma": 3,
+   "toplam": 5
   },
   "32,19": {
    "tutma": 1,
@@ -393,8 +393,8 @@
    "toplam": 1
   },
   "16,7": {
-   "tutma": 1,
-   "toplam": 2
+   "tutma": 2,
+   "toplam": 3
   },
   "20,9": {
    "tutma": 0,
@@ -441,8 +441,8 @@
    "toplam": 1
   },
   "8,4": {
-   "tutma": 3,
-   "toplam": 3
+   "tutma": 4,
+   "toplam": 4
   },
   "31,34": {
    "tutma": 0,
@@ -470,7 +470,7 @@
   },
   "16,8": {
    "tutma": 1,
-   "toplam": 1
+   "toplam": 2
   },
   "17,14": {
    "tutma": 1,
@@ -478,27 +478,27 @@
   },
   "8,6": {
    "tutma": 3,
-   "toplam": 7
+   "toplam": 8
   },
   "6,3": {
    "tutma": 1,
    "toplam": 1
   },
   "8,5": {
-   "tutma": 0,
-   "toplam": 2
+   "tutma": 1,
+   "toplam": 3
   },
   "10,5": {
    "tutma": 1,
    "toplam": 3
   },
   "10,9": {
-   "tutma": 2,
-   "toplam": 3
+   "tutma": 3,
+   "toplam": 4
   },
   "10,6": {
-   "tutma": 4,
-   "toplam": 4
+   "tutma": 5,
+   "toplam": 5
   },
   "7,4": {
    "tutma": 2,
@@ -509,12 +509,12 @@
    "toplam": 5
   },
   "11,6": {
-   "tutma": 2,
-   "toplam": 5
+   "tutma": 3,
+   "toplam": 8
   },
   "11,4": {
-   "tutma": 1,
-   "toplam": 1
+   "tutma": 2,
+   "toplam": 2
   },
   "6,4": {
    "tutma": 0,
@@ -522,15 +522,15 @@
   },
   "16,13": {
    "tutma": 0,
-   "toplam": 1
+   "toplam": 2
   },
   "19,20": {
    "tutma": 3,
    "toplam": 4
   },
   "16,12": {
-   "tutma": 0,
-   "toplam": 1
+   "tutma": 1,
+   "toplam": 2
   },
   "27,31": {
    "tutma": 0,
@@ -589,8 +589,8 @@
    "toplam": 2
   },
   "14,5": {
-   "tutma": 0,
-   "toplam": 1
+   "tutma": 2,
+   "toplam": 3
   },
   "17,5": {
    "tutma": 0,
@@ -614,7 +614,7 @@
   },
   "22,24": {
    "tutma": 0,
-   "toplam": 1
+   "toplam": 2
   },
   "12,2": {
    "tutma": 0,
@@ -637,16 +637,16 @@
    "toplam": 1
   },
   "11,3": {
-   "tutma": 0,
-   "toplam": 1
+   "tutma": 3,
+   "toplam": 4
   },
   "19,12": {
    "tutma": 1,
    "toplam": 1
   },
   "21,21": {
-   "tutma": 0,
-   "toplam": 1
+   "tutma": 1,
+   "toplam": 2
   },
   "18,15": {
    "tutma": 1,
@@ -657,16 +657,16 @@
    "toplam": 1
   },
   "9,3": {
-   "tutma": 0,
-   "toplam": 1
+   "tutma": 1,
+   "toplam": 2
   },
   "16,9": {
    "tutma": 0,
    "toplam": 1
   },
   "13,9": {
-   "tutma": 1,
-   "toplam": 1
+   "tutma": 3,
+   "toplam": 3
   },
   "5,4": {
    "tutma": 1,
@@ -689,8 +689,8 @@
    "toplam": 1
   },
   "19,19": {
-   "tutma": 3,
-   "toplam": 3
+   "tutma": 4,
+   "toplam": 5
   },
   "26,22": {
    "tutma": 1,
@@ -717,6 +717,62 @@
    "toplam": 1
   },
   "32,25": {
+   "tutma": 0,
+   "toplam": 1
+  },
+  "8,3": {
+   "tutma": 1,
+   "toplam": 1
+  },
+  "22,18": {
+   "tutma": 0,
+   "toplam": 1
+  },
+  "30,27": {
+   "tutma": 0,
+   "toplam": 1
+  },
+  "12,4": {
+   "tutma": 1,
+   "toplam": 2
+  },
+  "27,25": {
+   "tutma": 1,
+   "toplam": 1
+  },
+  "5,3": {
+   "tutma": 1,
+   "toplam": 1
+  },
+  "10,4": {
+   "tutma": 1,
+   "toplam": 1
+  },
+  "28,30": {
+   "tutma": 1,
+   "toplam": 1
+  },
+  "27,13": {
+   "tutma": 0,
+   "toplam": 1
+  },
+  "33,9": {
+   "tutma": 0,
+   "toplam": 1
+  },
+  "17,10": {
+   "tutma": 1,
+   "toplam": 1
+  },
+  "17,9": {
+   "tutma": 0,
+   "toplam": 1
+  },
+  "29,33": {
+   "tutma": 0,
+   "toplam": 1
+  },
+  "28,27": {
    "tutma": 0,
    "toplam": 1
   }
