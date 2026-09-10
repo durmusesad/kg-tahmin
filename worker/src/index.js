@@ -137,14 +137,39 @@ async function bultenGuncelleIsle(request, env) {
   if (maclar.length > 5000) {
     return jsonResponse({ hata: "mac sayisi cok fazla" }, 400);
   }
+  if (!env.KG_SNAPSHOTS) return jsonResponse({ hata: "KV yapilandirilmamis" }, 500);
+  const simdiMs = Date.now();
+  const yeniMaclarStr = JSON.stringify(maclar);
+  // 2026-09-10: KV günlük 1000 yazma kotası tekrar aşılıyordu (09-08: 1187,
+  // 09-09: 1119). Kırmızı bot her 90sn'de bir push ediyor ve eskiden bu uç
+  // KOŞULSUZ yazıyordu (~650 yazma/gün). Oysa maç listesi/oranlar çoğu turda
+  // hiç değişmiyor (özellikle sakin saatlerde). Artık: yaz SADECE maç listesi
+  // değiştiyse VEYA son yazmadan bu yana 10 dk geçtiyse (alinmaZamaniMs
+  // tazeliği korunsun — guncelMaclariAl aktif eşiği 15 dk). Bir ekstra KV
+  // okuması (100k/gün limit) ~300-400 yazma/gün tasarruf ettirir.
+  let oncekiMaclarStr = null;
+  let oncekiAlinmaMs = 0;
+  try {
+    const oncekiHam = await env.KG_SNAPSHOTS.get(BULTEN_KV_ANAHTARI);
+    if (oncekiHam) {
+      const onceki = JSON.parse(oncekiHam);
+      oncekiMaclarStr = JSON.stringify(onceki.maclar || []);
+      oncekiAlinmaMs = onceki.alinmaZamaniMs || 0;
+    }
+  } catch (err) {
+  }
+  const degisti = yeniMaclarStr !== oncekiMaclarStr;
+  const bayat = simdiMs - oncekiAlinmaMs > 10 * 60 * 1000;
+  if (!degisti && !bayat) {
+    return jsonResponse({ alindi: true, macSayisi: maclar.length, yazildi: false });
+  }
   const kayit = {
     guncellemeZamani: govde.guncellemeZamani || toIstanbulIso(new Date()),
-    alinmaZamaniMs: Date.now(),
+    alinmaZamaniMs: simdiMs,
     maclar,
   };
-  if (!env.KG_SNAPSHOTS) return jsonResponse({ hata: "KV yapilandirilmamis" }, 500);
   await env.KG_SNAPSHOTS.put(BULTEN_KV_ANAHTARI, JSON.stringify(kayit));
-  return jsonResponse({ alindi: true, macSayisi: maclar.length });
+  return jsonResponse({ alindi: true, macSayisi: maclar.length, yazildi: true });
 }
 
 // KV'den kırmızı bot'un pushladığı en güncel maç listesini okur. Veri hiç
