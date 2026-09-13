@@ -105,18 +105,19 @@ function toIstanbulIso(date) {
 // veri üzerinde ucuz) burada, guvenHesapla() ile yapılır.
 const BULTEN_KV_ANAHTARI = "bulten:guncel";
 const BULTEN_MAX_YAS_MS = 15 * 60 * 1000;
-// 2026-08-24: Kırmızı bot da (kg_bulten_pusher.py) artık TR 03:00-09:00
+// 2026-08-24: Kırmızı bot da (kg_bulten_pusher.py) artık TR 02:00-11:00
 // arası uyuyor (KV günlük 1000 yazma kotasını aşmamak için — bkz. proje
-// notu). O pencerede yeni push gelmeyeceği için 15dk'lık normal tazelik
-// eşiği aşılır ve /api/bulten hataya düşerdi. Bu saatlerde eşik genişletilip
+// notu; pencere 2026-09-13'te 03:00-09:00'dan 02:00-11:00'a genişletildi).
+// O pencerede yeni push gelmeyeceği için 15dk'lık normal tazelik eşiği
+// aşılır ve /api/bulten hataya düşerdi. Bu saatlerde eşik genişletilip
 // son bilinen (biraz bayat ama var olan) veri gösterilmeye devam edilir —
-// zaten o saatte oran neredeyse hiç değişmiyor. Aktif saatlerde (09:00-03:00)
-// eşik değişmedi: gerçek bir arıza olursa hâlâ hızlıca fark edilsin diye.
-const BULTEN_MAX_YAS_UYKU_MS = 7 * 3600 * 1000;
+// zaten o saatte oran neredeyse hiç değişmiyor. Aktif saatlerde eşik
+// değişmedi: gerçek bir arıza olursa hâlâ hızlıca fark edilsin diye.
+const BULTEN_MAX_YAS_UYKU_MS = 9 * 3600 * 1000;
 
 function trUykuSaatiMi(simdiMs) {
   const trSaat = (new Date(simdiMs).getUTCHours() + 3) % 24; // TR sabit UTC+3, DST yok
-  return trSaat >= 3 && trSaat < 9;
+  return trSaat >= 2 && trSaat < 11;
 }
 
 async function bultenGuncelleIsle(request, env) {
