@@ -3,56 +3,61 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#ffffff">
+<meta name="theme-color" content="#f5f6fb">
 <title>KG Tahmin</title>
 <meta name="description" content="Nesine bülteninden canlı İY/MS KG ve 6+ Gol oranlarını geçmiş maç istatistikleriyle eşleştirip Karşılıklı Gol fırsatlarını sıralar.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
 <style>
   :root{
-    --ink:#211609;
-    --ink-soft:color-mix(in srgb, var(--ink) 62%, transparent);
-    --ink-faint:color-mix(in srgb, var(--ink) 42%, transparent);
-    --parchment:#ffffff;
-    --parchment-2:#f4f0e6;
-    --parchment-3:#ece5d4;
-    --seal:#e63950;
-    --seal-dark:#c22740;
-    --live:#e63950;
-    --live-dark:#c22740;
-    --tile:#12b886;
-    --tile-dark:#059669;
-    --brass:#f2a93b;
-    --brass-dark:#d98c0a;
-    --card-bg:#fffdf8;
-    --shadow:rgba(20,16,10,.10);
-    --border:color-mix(in srgb, var(--brass) 32%, transparent);
-    --focus:#2f7de1;
-    --kupon:var(--seal);
-    --kupon-dark:var(--seal-dark);
+    --ink:#0f172a;
+    --ink-soft:#5b6376;
+    --ink-faint:#98a1b5;
+    --parchment:#f5f6fb;
+    --parchment-2:#f1f2f7;
+    --parchment-3:#eef0f6;
+    --seal:#dc2626;
+    --seal-dark:#b91c1c;
+    --live:#dc2626;
+    --live-dark:#b91c1c;
+    --tile:#22c55e;
+    --tile-dark:#15803d;
+    --brass:#eab308;
+    --brass-dark:#92660a;
+    --card-bg:#ffffff;
+    --shadow:rgba(16,24,40,.10);
+    --shadow-lg:rgba(16,24,40,.22);
+    --border:#e7e9f1;
+    --focus:#2f6fed;
+    --kupon:#7c3aed;
+    --kupon-dark:#6d28d9;
     color-scheme: light;
   }
   :root[data-theme="dark"]{
-    --ink:#e9e2d3;
-    --ink-soft:color-mix(in srgb, var(--ink) 66%, transparent);
-    --ink-faint:color-mix(in srgb, var(--ink) 44%, transparent);
-    --parchment:#151109;
-    --parchment-2:#1e1810;
-    --parchment-3:#272016;
-    --seal:#c1596a;
-    --seal-dark:#9c4353;
-    --live:#c1596a;
-    --live-dark:#9c4353;
-    --tile:#3fa285;
-    --tile-dark:#2c7d67;
-    --brass:#bd9350;
-    --brass-dark:#96733c;
-    --card-bg:#1b160e;
+    --ink:#e7eaf3;
+    --ink-soft:#98a1b8;
+    --ink-faint:#66708a;
+    --parchment:#0b0f1a;
+    --parchment-2:#141a2a;
+    --parchment-3:#1c2333;
+    --seal:#ef4444;
+    --seal-dark:#dc2626;
+    --live:#ef4444;
+    --live-dark:#dc2626;
+    --tile:#34d399;
+    --tile-dark:#10b981;
+    --brass:#fbbf24;
+    --brass-dark:#d97706;
+    --card-bg:#121826;
     --shadow:rgba(0,0,0,.45);
-    --border:color-mix(in srgb, var(--brass) 30%, transparent);
-    --focus:#6fa3e0;
-    --kupon:var(--seal);
-    --kupon-dark:var(--seal-dark);
+    --shadow-lg:rgba(0,0,0,.55);
+    --border:#232a3d;
+    --focus:#60a5fa;
+    --kupon:#a78bfa;
+    --kupon-dark:#8b5cf6;
     color-scheme: dark;
   }
   *{box-sizing:border-box;}
@@ -60,36 +65,48 @@
   body{
     background:var(--parchment);
     color:var(--ink);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased;
     -webkit-tap-highlight-color:transparent;
     overscroll-behavior-y:contain;
     padding-bottom:calc(94px + env(safe-area-inset-bottom));
     transition:background-color .2s ease, color .2s ease;
   }
   h1,h2,.display{
-    font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif;
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
     text-wrap:balance;
-    font-weight:700;
+    font-weight:800;
+    letter-spacing:-.02em;
   }
   button, select{ font-family:inherit; }
   .weave{
     position:fixed; inset:0; z-index:-1; pointer-events:none;
-    background:
-      radial-gradient(circle at 15% 20%, color-mix(in srgb, var(--brass) 10%, transparent) 0, transparent 40%),
-      radial-gradient(circle at 85% 75%, color-mix(in srgb, var(--seal) 8%, transparent) 0, transparent 45%),
-      var(--parchment);
+    background:var(--parchment);
   }
 
   header.top{
-    padding:clamp(12px,3.4vw,18px) 16px 8px;
-    max-width:880px;
-    margin:0 auto;
+    position:sticky; top:0; z-index:40;
+    background:color-mix(in srgb, var(--card-bg) 92%, transparent);
+    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--border);
+    box-shadow:0 1px 2px var(--shadow);
+    padding:clamp(10px,3vw,14px) 16px;
+    margin-bottom:6px;
   }
   .top-row{
+    max-width:880px; margin:0 auto;
     display:flex; align-items:center; justify-content:space-between; gap:10px;
   }
+  .title-block{ display:flex; align-items:center; gap:9px; }
+  .title-block .logo-mark{
+    width:30px; height:30px; border-radius:9px; flex:none;
+    background:linear-gradient(135deg,var(--tile),#0ea5e9);
+    color:#fff; display:flex; align-items:center; justify-content:center;
+    font-size:.68rem; font-weight:800; letter-spacing:-.02em;
+    box-shadow:0 4px 10px -2px rgba(34,197,94,.45);
+  }
   .title-block h1{
-    font-size:clamp(18px,4.4vw,24px);
+    font-size:clamp(17px,4vw,21px);
     margin:0;
   }
   .top-actions{
@@ -97,11 +114,13 @@
   }
   .icon-btn{
     font-size:11.5px; font-weight:700;
-    border:1px solid var(--border);
-    background:var(--card-bg); color:var(--ink);
-    border-radius:10px; padding:7px 11px;
+    border:0;
+    background:var(--parchment-2); color:var(--ink-soft);
+    border-radius:999px; padding:8px 13px;
     cursor:pointer; white-space:nowrap;
+    transition:.15s;
   }
+  .icon-btn:hover{ color:var(--ink); }
   .icon-btn:active{transform:translateY(1px);}
   .icon-btn:disabled{
     opacity:.5; cursor:not-allowed; transform:none;
@@ -109,9 +128,9 @@
   }
 
   .meta-strip{
+    max-width:880px; margin:10px auto 0;
     display:flex; flex-wrap:wrap; align-items:baseline;
     gap:3px 14px;
-    margin-top:10px;
     font-size:11.5px; font-weight:600;
     color:var(--ink-soft);
   }
@@ -129,21 +148,22 @@
   .filter-bar{
     background:var(--card-bg);
     border:1px solid var(--border);
-    border-radius:14px;
+    border-radius:16px;
     padding:10px;
     margin-bottom:16px;
+    box-shadow:0 1px 2px var(--shadow);
   }
   .search-row{margin-bottom:8px;}
   .search-row input{
     width:100%;
     border:1px solid var(--border);
     background:var(--parchment-2); color:var(--ink);
-    border-radius:9px;
+    border-radius:10px;
     padding:9px 12px;
     font-size:13px; font-weight:600;
   }
   .search-row input::placeholder{color:var(--ink-faint); font-weight:400;}
-  .search-row input:focus{outline:none; border-color:var(--kupon);}
+  .search-row input:focus{outline:2px solid var(--focus); outline-offset:0; border-color:transparent;}
 
   .filter-controls{
     display:grid;
@@ -160,7 +180,7 @@
     width:100%;
     border:1px solid var(--border);
     background:var(--parchment-2); color:var(--ink);
-    border-radius:9px;
+    border-radius:10px;
     padding:8px 8px;
     font-size:12.5px; font-weight:600;
   }
@@ -176,7 +196,7 @@
     padding:26px 10px;
     background:var(--card-bg);
     border:1px dashed var(--border);
-    border-radius:12px;
+    border-radius:14px;
   }
 
   .match-list{display:flex; flex-direction:column; gap:10px;}
@@ -192,12 +212,14 @@
 
   .match-card{
     background:var(--card-bg);
-    border:1.5px solid var(--border);
+    border:1px solid var(--border);
     border-left:4px solid var(--border);
-    border-radius:14px;
-    box-shadow:0 2px 8px var(--shadow);
+    border-radius:16px;
+    box-shadow:0 1px 2px var(--shadow);
+    transition:box-shadow .15s ease, transform .15s ease;
     overflow:hidden;
   }
+  .match-card:hover{ box-shadow:0 10px 24px -12px var(--shadow-lg); transform:translateY(-1px); }
   .match-card.tier-kesin{border-left-color:var(--tile);}
   .match-card.tier-olasi{border-left-color:var(--brass);}
 
@@ -380,21 +402,24 @@
     border-radius:999px;
     background:var(--card-bg);
     border:1px solid var(--border);
-    box-shadow:0 10px 30px rgba(0,0,0,.26);
+    box-shadow:0 20px 40px -16px var(--shadow-lg);
   }
   .dock-btn{
     flex:1 1 0; min-width:0; height:46px;
     display:flex; align-items:center; justify-content:center;
     border:none; border-radius:999px;
-    background:transparent; color:var(--ink);
+    background:transparent; color:var(--ink-soft);
     cursor:pointer;
-    transition:background-color .18s ease;
+    transition:.18s ease;
   }
   .dock-btn:active{transform:translateY(1px);}
   .dock-btn svg{width:20px; height:20px;}
   .dock-btn.active{
-    background:color-mix(in srgb, var(--brass) 24%, var(--parchment-2));
+    color:#fff;
+    background:linear-gradient(135deg,var(--tile),var(--tile-dark));
+    box-shadow:0 4px 10px -3px rgba(21,128,61,.5);
   }
+  .dock-btn:not(.active):not(:disabled):hover{ color:var(--ink); background:var(--parchment-2); }
   .dock-btn:disabled{opacity:.3; cursor:not-allowed; transform:none;}
   .dock-kupon{
     flex:0 0 auto;
@@ -428,7 +453,8 @@
   .kupon-screen-card{
     background:var(--card-bg);
     border:1px solid var(--border);
-    border-radius:14px;
+    border-radius:16px;
+    box-shadow:0 1px 2px var(--shadow);
     overflow:hidden;
   }
   .kupon-head{
@@ -611,6 +637,7 @@
 <header class="top">
   <div class="top-row">
     <div class="title-block">
+      <span class="logo-mark" aria-hidden="true">KG</span>
       <h1>KG Tahmin</h1>
     </div>
     <div class="top-actions">
