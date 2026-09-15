@@ -732,7 +732,7 @@
     <span class="dk-mid" id="kuponPillOran">–</span>
     <span class="dk-bot">Oran</span>
   </button>
-  <button type="button" class="dock-btn dock-canli" id="dockCanli" aria-label="Canlı maçlar">
+  <button type="button" class="dock-btn dock-canli" id="dockCanli" aria-label="Kırmızı Sinyal">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5.2l3.4 2"/></svg>
   </button>
   <button type="button" class="dock-btn dock-arsiv" id="dockArsiv" aria-label="Arşiv">
@@ -782,7 +782,7 @@
   const SORTS = {
     rate_desc:  { label: "Tutma Oranı (Yüksek → Düşük)", cmp: (a,b) => (b.tutmaOrani ?? -1) - (a.tutmaOrani ?? -1) || (b.toplam ?? 0) - (a.toplam ?? 0) },
     rate_asc:   { label: "Tutma Oranı (Düşük → Yüksek)", cmp: (a,b) => (a.tutmaOrani ?? 2) - (b.tutmaOrani ?? 2) || (b.toplam ?? 0) - (a.toplam ?? 0) },
-    time_asc:   { label: "Maç Saati (Yakın → Uzak)",     cmp: (a,b) => a.macZamani.localeCompare(b.macZamani) },
+    time_asc:   { label: "Maç Saati (Yakın → Uzak)",     cmp: (a,b) => (a.macZamani || "").localeCompare(b.macZamani || "") },
     mskg_desc:  { label: "MS KG Oranı (Yüksek → Düşük)", cmp: (a,b) => ((b.canliMsKg ?? b.msKg) ?? -1) - ((a.canliMsKg ?? a.msKg) ?? -1) },
     mskg_asc:   { label: "MS KG Oranı (Düşük → Yüksek)", cmp: (a,b) => ((a.canliMsKg ?? a.msKg) ?? 999) - ((b.canliMsKg ?? b.msKg) ?? 999) },
     gol6_desc:  { label: "6+ Gol Oranı (Yüksek → Düşük)", cmp: (a,b) => (b.altUst6 ?? -1) - (a.altUst6 ?? -1) },
@@ -801,8 +801,8 @@
   sortSelectEl.value = currentSort;
 
   const VIEW_NOTES = {
-    tum:   "Kesin maçlar en üstte; kalanlar arşiv tutma oranına göre yüksekten düşüğe sıralı.",
-    canli: "",
+    tum:   "Kesin maçlar en üstte; canlıya geçen maçlar otomatik güncellenir, kalanlar arşiv tutma oranına göre yüksekten düşüğe sıralı.",
+    canli: "Kırmızı bottan taktik sinyali gelen canlı maçlar — sinyal geldiğinde otomatik burada görünür.",
   };
 
   /* ============== KUPON (kazanç hesaplayıcı) ============== */
@@ -1123,11 +1123,31 @@
   }
 
   /* ============== FILTER / SORT / RENDER ============== */
+  // Maç önü (allMatches) ve canlı (liveMatches) TEK listede birleşir: bir
+  // maç canlıya geçtiyse canlı hali (skor/dakika içerir) gösterilir, henüz
+  // başlamamışsa maç önü hali kalır. id'ler Nesine'nin event id'si olduğu
+  // için iki kaynakta da aynıdır. Ayrı bir "tüm canlı maçlar" görünümü artık
+  // yok — "canli" görünümü kırmızı bottan sinyal gelen maçlara ayrılmıştır.
+  function mergedMatches(){
+    const liveById = new Map(liveMatches.map(m => [m.id, m]));
+    const seen = new Set();
+    const out = allMatches.map(m => {
+      const lv = liveById.get(m.id);
+      if (lv){ seen.add(m.id); return lv; }
+      return m;
+    });
+    for (const lv of liveMatches){
+      if (!seen.has(lv.id)) out.push(lv);
+    }
+    return out;
+  }
+
   function tabMatches(view){
-    if (view === "kesin") return allMatches.filter(m => m.guven === "kesin");
-    if (view === "olasi") return allMatches.filter(m => m.guven === "olasi");
-    if (view === "canli") return liveMatches.slice();
-    return allMatches.slice();
+    if (view === "canli") return liveMatches.filter(m => !!m.kirmiziSinyal);
+    const merged = mergedMatches();
+    if (view === "kesin") return merged.filter(m => m.guven === "kesin");
+    if (view === "olasi") return merged.filter(m => m.guven === "olasi");
+    return merged;
   }
 
   function rebuildLeagueOptions(){
@@ -1156,21 +1176,10 @@
 
     let html;
     if (currentView === "canli"){
-      // Canlı iki bölüm:
-      //   ÜST → kırmızı sinyalli maçlar, sonra "Kesin" etiketli maçlar
-      //   ALT → kalan tüm canlı maçlar, maç dakikasına göre (küçükten büyüğe)
-      const oneCikan = m => !!m.kirmiziSinyal || m.guven === "kesin";
-      const ust = matches.filter(oneCikan).sort((a, b) => {
-        const s = (b.kirmiziSinyal ? 1 : 0) - (a.kirmiziSinyal ? 1 : 0);
-        if (s) return s;
-        const k = (b.guven === "kesin" ? 1 : 0) - (a.guven === "kesin" ? 1 : 0);
-        if (k) return k;
-        return dakikaNum(a) - dakikaNum(b);
-      });
-      const alt = matches.filter(m => !oneCikan(m)).sort((a, b) => dakikaNum(a) - dakikaNum(b));
-      html = ust.map(matchCard).join("");
-      if (ust.length && alt.length) html += '<div class="list-sep">Diğer canlı maçlar</div>';
-      html += alt.map(matchCard).join("");
+      // Bu görünüm sadece kırmızı bottan taktik sinyali gelen canlı maçları
+      // içerir (tabMatches zaten filtrelemiş durumda) — dakikaya göre sıralı.
+      matches = matches.slice().sort((a, b) => dakikaNum(a) - dakikaNum(b));
+      html = matches.map(matchCard).join("");
     } else {
       // Bülten tek liste: "Kesin" etiketliler en üstte, kalanlar seçili
       // sıralamaya göre (varsayılan: arşiv tutma oranı yüksek → düşük).
@@ -1185,7 +1194,9 @@
 
     $("list").innerHTML = html;
     $("emptyNote").style.display = matches.length ? "none" : "block";
-    $("emptyNote").textContent = searchQuery ? "Aramanla eşleşen maç yok." : "Kriterlere uyan maç yok.";
+    $("emptyNote").textContent = searchQuery
+      ? "Aramanla eşleşen maç yok."
+      : (currentView === "canli" ? "Şu an kırmızı sinyal yok." : "Kriterlere uyan maç yok.");
     const note = VIEW_NOTES[currentView] || "";
     $("tabNote").textContent = note;
     $("tabNote").style.display = note ? "" : "none";
@@ -1237,9 +1248,10 @@
   function render(data){
     allMatches = data.maclar || [];
 
-    $("statTotal").textContent = allMatches.length;
-    $("statKesin").textContent = allMatches.filter(m => m.guven === "kesin").length;
-    $("statOlasi").textContent = allMatches.filter(m => m.guven === "olasi").length;
+    const merged = mergedMatches();
+    $("statTotal").textContent = merged.length;
+    $("statKesin").textContent = merged.filter(m => m.guven === "kesin").length;
+    $("statOlasi").textContent = merged.filter(m => m.guven === "olasi").length;
     if (data.guncellemeZamani){
       const d = new Date(data.guncellemeZamani);
       $("statUpdated").textContent = String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0");
